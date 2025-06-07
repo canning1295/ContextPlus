@@ -82,6 +82,7 @@ function openSettings() {
     } else {
         document.getElementById('auth-btn').innerHTML = '<img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" class="icon"> Connect GitHub';
     }
+    document.getElementById('first-run').classList.toggle('hidden', !!accessToken);
     document.getElementById('client-id-input').value = clientId || '';
     document.getElementById('client-secret-input').value = clientSecret || '';
     document.getElementById('theme-select').value = theme;
@@ -102,13 +103,8 @@ function handleThemeChange() {
     applyTheme();
 }
 
-async function handleSaveCreds() {
-    clientId = document.getElementById('client-id-input').value.trim();
-    clientSecret = document.getElementById('client-secret-input').value.trim();
-    await idbSet('client_id', clientId);
-    await idbSet('client_secret', clientSecret);
-    showToast('Credentials saved', 'success', 2, 40, 200, 'upper middle');
-    document.getElementById('first-run').classList.add('hidden');
+function openGitHubSettings(){
+    window.open('https://github.com/settings/developers', '_blank');
 }
 
 function handleAuthBtn() {
@@ -118,6 +114,10 @@ function handleAuthBtn() {
         accessToken = null;
         showToast('Disconnected', 'warning', 2, 40, 200, 'upper middle');
     } else {
+        clientId = document.getElementById('client-id-input').value.trim();
+        clientSecret = document.getElementById('client-secret-input').value.trim();
+        idbSet('client_id', clientId);
+        idbSet('client_secret', clientSecret);
         startOAuth();
     }
     closeSettings();
@@ -298,14 +298,17 @@ async function init(){
     applyTheme();
     updateRepoLabels();
     handleRedirect();
-    if(!clientId || !clientSecret){
+    if(!clientId || !clientSecret || !accessToken){
         openSettings();
+    }
+    if(!accessToken){
         document.getElementById('first-run').classList.remove('hidden');
     }
     document.getElementById('settings-btn').addEventListener('click', openSettings);
     document.getElementById('settings-close').addEventListener('click', closeSettings);
     document.getElementById('auth-btn').addEventListener('click', handleAuthBtn);
-    document.getElementById('save-creds').addEventListener('click', handleSaveCreds);
+    const ghBtn = document.getElementById('open-github');
+    if(ghBtn) ghBtn.addEventListener('click', openGitHubSettings);
     document.getElementById('repo-label').addEventListener('click', openRepoModal);
     document.getElementById('branch-label').addEventListener('click', openRepoModal);
     document.getElementById('modal-close').addEventListener('click', confirmRepoBranch);
