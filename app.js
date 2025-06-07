@@ -176,12 +176,15 @@ function openRepoModal() {
         return;
     }
     const overlay = document.getElementById('modal-overlay');
+    overlay.style.display = 'flex';
     overlay.classList.remove('hidden');
     loadRepos();
 }
 
 function closeRepoModal() {
-    document.getElementById('modal-overlay').classList.add('hidden');
+    const overlay = document.getElementById('modal-overlay');
+    overlay.classList.add('hidden');
+    overlay.style.display = 'none';
 }
 
 function loadRepos() {
@@ -339,7 +342,7 @@ async function init(){
             loadFileTree();
         }
     }
-    if(!clientId || !clientSecret || !accessToken){
+    if(!clientId || !clientSecret){
         openSettings();
     }
     if(!accessToken){
