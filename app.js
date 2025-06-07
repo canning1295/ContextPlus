@@ -294,7 +294,14 @@ function createList(obj,parent){
         const li=document.createElement('li');
         const checkbox=document.createElement('input');
         checkbox.type='checkbox';
-        checkbox.dataset.path=obj[key]._item?obj[key]._item.path:key;
+        if(obj[key]._item){
+            checkbox.dataset.path=obj[key]._item.path;
+        } else {
+            checkbox.dataset.folder='true';
+        }
+        checkbox.addEventListener('change',()=>{
+            li.querySelectorAll('input[type=checkbox]').forEach(cb=>{if(cb!==checkbox) cb.checked=checkbox.checked;});
+        });
         li.appendChild(checkbox);
         li.appendChild(document.createTextNode(' '+key));
         parent.appendChild(li);
@@ -308,7 +315,15 @@ function createList(obj,parent){
 
 function getSelectedPaths(){
     const checkboxes=document.querySelectorAll('#file-tree input[type=checkbox]:checked');
-    return Array.from(checkboxes).map(cb=>cb.dataset.path);
+    return Array.from(checkboxes).filter(cb=>!cb.dataset.folder).map(cb=>cb.dataset.path);
+}
+
+function selectAll(){
+    document.querySelectorAll('#file-tree input[type=checkbox]').forEach(cb=>cb.checked=true);
+}
+
+function deselectAll(){
+    document.querySelectorAll('#file-tree input[type=checkbox]').forEach(cb=>cb.checked=false);
 }
 
 async function copySelected(){
@@ -316,9 +331,10 @@ async function copySelected(){
     if(!paths.length){showToast('No files selected','warning',2,40,200,'upper middle');return;}
     const contents=[];
     for(const p of paths){
-        const url=`https://raw.githubusercontent.com/${currentRepo.full_name}/${currentBranch}/${p}`;
-        const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`}});
-        const text=await resp.text();
+        const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
+        const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'}});
+        const data=await resp.json();
+        const text=atob(data.content.replace(/\n/g,''));
         contents.push(`// ${p}\n`+text);
     }
     const text=contents.join('\n\n');
@@ -358,6 +374,8 @@ async function init(){
     document.getElementById('modal-close').addEventListener('click', confirmRepoBranch);
     document.getElementById('repo-select').addEventListener('change', loadBranches);
     document.getElementById('copy-btn').addEventListener('click', copySelected);
+    document.getElementById('select-all').addEventListener('click', selectAll);
+    document.getElementById('deselect-all').addEventListener('click', deselectAll);
     document.getElementById('refresh-btn').addEventListener('click', loadFileTree);
     document.getElementById('theme-select').addEventListener('change', handleThemeChange);
     document.getElementById('settings-modal').addEventListener('click', closeSettings);
