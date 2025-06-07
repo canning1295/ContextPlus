@@ -104,7 +104,7 @@ function handleThemeChange() {
 }
 
 function openGitHubSettings(){
-    window.open('https://github.com/settings/developers', '_blank');
+    window.open('https://github.com/settings/applications/new', '_blank');
 }
 
 function handleAuthBtn() {
