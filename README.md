@@ -2,18 +2,7 @@
 
 A simple client-side web app to browse and copy files from your GitHub repositories. It is hosted at <https://contextplus.netlify.app/> and stores data locally using IndexedDB.
 
-## Development
-
-To develop locally:
-
-```bash
-npm install
-node server.js
-```
-
-Open `http://localhost:3000` in your browser. Each user supplies their own GitHub OAuth credentials inside the app.
-
-### Deploying on Netlify
+## Deploying on Netlify
 
 Simply deploy this repository. Netlify runs `generate-config.js` which writes `config.js` and exposes a serverless function at `/.netlify/functions/exchange`.
 
