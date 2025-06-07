@@ -1,11 +1,26 @@
-body { font-family: Arial, sans-serif; margin: 0; }
-#top-bar { display: flex; justify-content: space-between; background:#f0f0f0; padding:5px; }
+:root {
+  --bg-color: #ffffff;
+  --text-color: #000000;
+  --top-bar-bg: #f0f0f0;
+  --modal-bg: #ffffff;
+}
+
+.dark {
+  --bg-color: #222222;
+  --text-color: #ffffff;
+  --top-bar-bg: #333333;
+  --modal-bg: #444444;
+}
+
+body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); color: var(--text-color); }
+#top-bar { display: flex; justify-content: space-between; background: var(--top-bar-bg); padding:5px; }
 #repo-section { display: flex; gap: 5px; align-items: center; }
 #content { padding:10px; }
 #file-tree ul { list-style: none; padding-left: 20px; }
 #modal-overlay, #settings-modal { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 .hidden { display:none; }
-#modal, #settings-content { background: white; padding: 20px; }
+#modal, #settings-content { background: var(--modal-bg); padding: 20px; }
+.big-btn { font-size: 1.1em; padding: 10px 16px; }
 #toast-container { position: fixed; width: 100%; pointer-events: none; }
 .toast { position: absolute; padding:4px 8px; color:white; }
 .toast.success { background: green; }
