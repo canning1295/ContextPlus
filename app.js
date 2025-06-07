@@ -318,9 +318,8 @@ function handleFolderToggle(e){
     if(e.target.dataset.folder){
         const li = e.target.closest('li');
         if(li){
-            li.querySelectorAll('input[type=checkbox]').forEach(cb=>{
-                if(cb !== e.target) cb.checked = e.target.checked;
-            });
+            const boxes = li.querySelectorAll('ul input[type=checkbox]');
+            boxes.forEach(cb=>{ cb.checked = e.target.checked; });
         }
     }
 }
@@ -367,14 +366,13 @@ async function init(){
     updateRepoLabels();
     handleRedirect();
     if(accessToken){
-        if(!currentRepo || !currentBranch){
-            loadRepos();
-        } else {
+        loadRepos();
+        if(currentRepo && currentBranch){
             loadFileTree();
         }
     }
-    if(!clientId || !clientSecret){
-        if(DEBUG) console.log('Opening settings because credentials missing', {clientId, clientSecret});
+    if(!accessToken && (!clientId || !clientSecret)){
+        if(DEBUG) console.log('Opening settings because', {accessToken, clientId, clientSecret});
         openSettings();
     }
     if(!accessToken){
