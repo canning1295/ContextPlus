@@ -341,7 +341,10 @@ function getSelectedPaths(){
 
 async function copySelected(){
     const paths=getSelectedPaths();
-    if(!paths.length){showToast('No files selected','warning',2,40,200,'upper middle');return;}
+    if(!paths.length){
+        showToast('No files selected','warning',2,40,200,'upper middle');
+        return;
+    }
     const contents=[];
     for(const p of paths){
         const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
@@ -352,7 +355,8 @@ async function copySelected(){
     const clipText=contents.join('\n\n');
     await navigator.clipboard.writeText(String(clipText));
     const tokens=Math.ceil(clipText.length/4.7);
-    showToast(`${tokens} Tokens copied`,'success',3,40,200,'upper middle');
+    const tokenStr=tokens.toLocaleString();
+    showToast(`${paths.length} files / ${tokenStr} tokens copied to clipboard`,'success',3,40,200,'upper middle');
 }
 
 async function init(){
