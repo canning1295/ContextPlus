@@ -14,9 +14,18 @@ A simple client-side web app to browse and copy files from your GitHub repositor
    GITHUB_CLIENT_ID=<your_id> GITHUB_CLIENT_SECRET=<your_secret> node server.js
    ```
 
-   The server hosts the static files and exposes `/api/exchange` used by the OAuth
-   flow. See [docs/GITHUB_OAUTH.md](docs/GITHUB_OAUTH.md) for full setup details.
+The server hosts the static files and exposes `/api/exchange` used by the OAuth
+flow. See [docs/GITHUB_OAUTH.md](docs/GITHUB_OAUTH.md) for full setup details.
 3. Open `http://localhost:3000` in your browser to use the app.
+
+### Deploying on Netlify
+
+1. Create environment variables `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in
+   your Netlify site settings.
+2. Deploy the repository. Netlify runs `generate-config.js` which writes
+   `config.js` using those variables and exposes a serverless function at
+   `/.netlify/functions/exchange`.
+3. Set your GitHub OAuth App callback URL to your Netlify site URL.
 
 ## Usage
 
