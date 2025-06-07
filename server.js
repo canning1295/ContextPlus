@@ -8,14 +8,16 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
 app.post('/api/exchange', async (req, res) => {
-  const { code } = req.body;
-  if (!code) return res.status(400).json({ error: 'Missing code' });
+  const { code, client_id, client_secret } = req.body;
+  if (!code || !client_id || !client_secret) {
+    return res.status(400).json({ error: 'Missing parameters' });
+  }
   try {
     const params = new URLSearchParams({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      client_id,
+      client_secret,
       code,
-      redirect_uri: process.env.REDIRECT_URI || `${req.protocol}://${req.get('host')}`
+      redirect_uri: 'https://contextplus.netlify.app/'
     });
     const resp = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',
