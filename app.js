@@ -1,5 +1,7 @@
 const REDIRECT_URI = 'https://contextplus.netlify.app/';
 const EXCHANGE_URL = window.EXCHANGE_URL || '/.netlify/functions/exchange';
+// Simple flag so we can enable/disable verbose logging in one place
+const DEBUG = true;
 
 let clientId = null;
 let clientSecret = null;
@@ -134,6 +136,7 @@ function startOAuth() {
     const state = btoa(Math.random().toString(36).substring(2));
     localStorage.setItem('oauth_state', state);
     const authURL = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=repo&state=${state}`;
+    if(DEBUG) console.log('Opening OAuth URL', authURL);
     window.open(authURL, '_blank');
 }
 
@@ -147,11 +150,15 @@ function handleRedirect() {
             console.error('State mismatch');
             return;
         }
+        if(DEBUG) console.log('Exchanging OAuth code for token', {code});
         fetch(EXCHANGE_URL, {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body:JSON.stringify({code, client_id: clientId, client_secret: clientSecret})
-        }).then(r=>r.json()).then(data=>{
+        }).then(async r=>{
+            if(DEBUG) console.log('Token exchange response status', r.status);
+            const data = await r.json();
+            if(DEBUG) console.log('Token exchange response body', data);
             accessToken = data.access_token;
             if(accessToken) {
                 localStorage.setItem('gh_token', accessToken);
@@ -163,7 +170,11 @@ function handleRedirect() {
 }
 
 function openRepoModal() {
-    if(!accessToken) { showToast('Connect GitHub first', 'warning', 2); return; }
+    if(!accessToken) {
+        if(DEBUG) console.warn('openRepoModal called without access token');
+        showToast('Connect GitHub first', 'warning', 2);
+        return;
+    }
     const overlay = document.getElementById('modal-overlay');
     overlay.classList.remove('hidden');
     loadRepos();
@@ -174,10 +185,16 @@ function closeRepoModal() {
 }
 
 function loadRepos() {
+    if(DEBUG) console.log('Fetching repositories');
     fetch('https://api.github.com/user/repos?per_page=100', {
         headers:{Authorization:`Bearer ${accessToken}`, Accept:'application/vnd.github+json'}
     })
-    .then(r=>r.json())
+    .then(async r=>{
+        if(DEBUG) console.log('Repos response status', r.status);
+        const repos = await r.json();
+        if(DEBUG) console.log('Repos payload', repos);
+        return repos;
+    })
     .then(repos=>{
         const select = document.getElementById('repo-select');
         select.innerHTML='';
@@ -195,10 +212,16 @@ function loadRepos() {
 function loadBranches() {
     const repoFull = document.getElementById('repo-select').value;
     const [owner, repo]=repoFull.split('/');
+    if(DEBUG) console.log('Fetching branches for', repoFull);
     fetch(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=100`, {
         headers:{Authorization:`Bearer ${accessToken}`, Accept:'application/vnd.github+json'}
     })
-    .then(r=>r.json())
+    .then(async r=>{
+        if(DEBUG) console.log('Branches response status', r.status);
+        const branches = await r.json();
+        if(DEBUG) console.log('Branches payload', branches);
+        return branches;
+    })
     .then(branches=>{
         const select = document.getElementById('branch-select');
         select.innerHTML='';
@@ -220,16 +243,26 @@ function confirmRepoBranch() {
     currentBranch=branch;
     localStorage.setItem('current_repo', JSON.stringify(currentRepo));
     localStorage.setItem('current_branch', currentBranch);
+    if(DEBUG) console.log('Selected repo/branch', currentRepo, currentBranch);
     updateRepoLabels();
     loadFileTree();
     closeRepoModal();
 }
 
 function loadFileTree() {
-    if(!currentRepo || !currentBranch || !accessToken) return;
+    if(!currentRepo || !currentBranch || !accessToken) {
+        if(DEBUG) console.warn('loadFileTree called without repo/branch/token');
+        return;
+    }
     const url=`https://api.github.com/repos/${currentRepo.owner}/${currentRepo.repo}/git/trees/${currentBranch}?recursive=1`;
+    if(DEBUG) console.log('Fetching file tree', url);
     fetch(url,{headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/vnd.github+json'}})
-    .then(r=>r.json()).then(data=>{
+    .then(async r=>{
+        if(DEBUG) console.log('Tree response status', r.status);
+        const data = await r.json();
+        if(DEBUG) console.log('Tree payload', data);
+        return data;
+    }).then(data=>{
         buildTree(data.tree);
     });
 }
