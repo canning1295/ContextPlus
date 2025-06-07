@@ -6,6 +6,13 @@ const EXCHANGE_URL = '/api/exchange'; // endpoint to exchange code for token
 let accessToken = localStorage.getItem('gh_token') || null;
 let currentRepo = JSON.parse(localStorage.getItem('current_repo') || 'null');
 let currentBranch = localStorage.getItem('current_branch');
+let theme = localStorage.getItem('theme') || 'light';
+
+function applyTheme() {
+    if(theme === 'dark') document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+}
+applyTheme();
 
 function showToast(msg, type='success', seconds=3, h=40, w=200, loc='upper middle') {
     const container = document.getElementById('toast-container');
@@ -31,11 +38,18 @@ function openSettings() {
     const modal = document.getElementById('settings-modal');
     modal.classList.remove('hidden');
     document.getElementById('auth-status').textContent = accessToken ? 'Connected' : 'Not connected';
-    document.getElementById('auth-btn').textContent = accessToken ? 'Disconnect' : 'Connect GitHub';
+    document.getElementById('auth-btn').textContent = accessToken ? '❌ Disconnect' : '🐙 Connect GitHub';
+    document.getElementById('theme-select').value = theme;
 }
 
 function closeSettings() {
     document.getElementById('settings-modal').classList.add('hidden');
+}
+
+function handleThemeChange() {
+    theme = document.getElementById('theme-select').value;
+    localStorage.setItem('theme', theme);
+    applyTheme();
 }
 
 function handleAuthBtn() {
@@ -50,10 +64,14 @@ function handleAuthBtn() {
 }
 
 function startOAuth() {
+    if(CLIENT_ID === 'YOUR_CLIENT_ID') {
+        showToast('Set CLIENT_ID in app.js', 'error', 3, 40, 200, 'upper middle');
+        return;
+    }
     const state = btoa(Math.random().toString(36).substring(2));
     localStorage.setItem('oauth_state', state);
     const authURL = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=repo&state=${state}`;
-    window.location.href = authURL;
+    window.open(authURL, '_blank');
 }
 
 function handleRedirect() {
@@ -211,6 +229,7 @@ async function copySelected(){
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
+    applyTheme();
     updateRepoLabels();
     handleRedirect();
     document.getElementById('settings-btn').onclick=openSettings;
@@ -222,4 +241,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('repo-select').onchange=loadBranches;
     document.getElementById('copy-btn').onclick=copySelected;
     document.getElementById('refresh-btn').onclick=loadFileTree;
+    document.getElementById('theme-select').onchange=handleThemeChange;
+    document.getElementById('settings-modal').onclick=closeSettings;
+    document.getElementById('settings-content').onclick=e=>e.stopPropagation();
 });

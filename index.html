@@ -17,7 +17,7 @@
     </div>
 
     <div id="content">
-        <button id="copy-btn">Copy Selected</button>
+        <button id="copy-btn" class="big-btn">📋 Copy Selected</button>
         <div id="file-tree"></div>
     </div>
 
@@ -29,7 +29,7 @@
             <select id="repo-select"></select>
             <h2>Select Branch</h2>
             <select id="branch-select"></select>
-            <button id="modal-close">Close</button>
+            <button id="modal-close">✅ Confirm</button>
         </div>
     </div>
 
@@ -38,9 +38,16 @@
             <h2>Settings</h2>
             <div id="auth-section">
                 <p id="auth-status">Not connected</p>
-                <button id="auth-btn">Connect GitHub</button>
+                <button id="auth-btn" class="big-btn">🐙 Connect GitHub</button>
             </div>
-            <button id="settings-close">Close</button>
+            <div id="theme-section">
+                <label for="theme-select">Theme:</label>
+                <select id="theme-select">
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                </select>
+            </div>
+            <button id="settings-close">✖ Close</button>
         </div>
     </div>
 
