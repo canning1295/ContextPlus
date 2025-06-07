@@ -40,6 +40,20 @@
                 <p id="auth-status">Not connected</p>
                 <button id="auth-btn" class="big-btn"><img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" class="icon"> Connect GitHub</button>
             </div>
+            <div id="cred-section">
+                <h3>GitHub OAuth Credentials</h3>
+                <label for="client-id-input">Client ID:</label>
+                <input id="client-id-input" type="text">
+                <label for="client-secret-input">Client Secret:</label>
+                <input id="client-secret-input" type="password">
+                <button id="save-creds" class="big-btn">💾 Save</button>
+                <p id="first-run" class="hidden instructions">
+                    1. Create a new OAuth App at GitHub → Settings → Developer settings → OAuth Apps.<br>
+                    2. Use <code>https://contextplus.netlify.app/</code> as the callback URL.<br>
+                    3. Paste the generated Client ID and Client Secret above then press <strong>Save</strong>.<br>
+                    4. Finally click <strong>Connect GitHub</strong>.
+                </p>
+            </div>
             <div id="theme-section">
                 <label for="theme-select">Theme:</label>
                 <select id="theme-select">

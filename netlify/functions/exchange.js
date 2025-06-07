@@ -2,16 +2,16 @@ exports.handler = async function(event) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
-  const { code } = JSON.parse(event.body || '{}');
-  if (!code) {
-    return { statusCode: 400, body: JSON.stringify({ error: 'Missing code' }) };
+  const { code, client_id, client_secret } = JSON.parse(event.body || '{}');
+  if (!code || !client_id || !client_secret) {
+    return { statusCode: 400, body: JSON.stringify({ error: 'Missing parameters' }) };
   }
   try {
     const params = new URLSearchParams({
-      client_id: process.env.GITHUB_CLIENT_ID,
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      client_id,
+      client_secret,
       code,
-      redirect_uri: process.env.REDIRECT_URI || event.headers['origin'] || ''
+      redirect_uri: 'https://contextplus.netlify.app/'
     });
     const resp = await fetch('https://github.com/login/oauth/access_token', {
       method: 'POST',

@@ -1,15 +1,45 @@
-// Configuration - replace with your GitHub OAuth app details
-// `GITHUB_CLIENT_ID` can be defined in a separate script tag to avoid
-// editing this file in production. Fallback to the placeholder string.
-const CLIENT_ID = window.GITHUB_CLIENT_ID || 'YOUR_CLIENT_ID';
-const REDIRECT_URI = window.location.origin + window.location.pathname;
-// Allow override via config.js for serverless deployments
-const EXCHANGE_URL = window.EXCHANGE_URL || '/api/exchange'; // endpoint to exchange code for token
+const REDIRECT_URI = 'https://contextplus.netlify.app/';
+const EXCHANGE_URL = window.EXCHANGE_URL || '/.netlify/functions/exchange';
+
+let clientId = null;
+let clientSecret = null;
+let db = null;
 
 let accessToken = localStorage.getItem('gh_token') || null;
 let currentRepo = JSON.parse(localStorage.getItem('current_repo') || 'null');
 let currentBranch = localStorage.getItem('current_branch');
 let theme = localStorage.getItem('theme') || 'light';
+
+function openDB() {
+    return new Promise(resolve => {
+        const req = indexedDB.open('contextplus', 1);
+        req.onupgradeneeded = e => {
+            e.target.result.createObjectStore('settings');
+        };
+        req.onsuccess = e => {
+            db = e.target.result;
+            resolve();
+        };
+    });
+}
+
+function idbGet(key) {
+    return new Promise(resolve => {
+        const tx = db.transaction('settings');
+        const store = tx.objectStore('settings');
+        const getReq = store.get(key);
+        getReq.onsuccess = () => resolve(getReq.result);
+        getReq.onerror = () => resolve(null);
+    });
+}
+
+function idbSet(key, val) {
+    return new Promise(resolve => {
+        const tx = db.transaction('settings', 'readwrite');
+        tx.objectStore('settings').put(val, key);
+        tx.oncomplete = () => resolve();
+    });
+}
 
 function applyTheme() {
     if(theme === 'dark') document.documentElement.classList.add('dark');
@@ -52,6 +82,8 @@ function openSettings() {
     } else {
         document.getElementById('auth-btn').innerHTML = '<img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" class="icon"> Connect GitHub';
     }
+    document.getElementById('client-id-input').value = clientId || '';
+    document.getElementById('client-secret-input').value = clientSecret || '';
     document.getElementById('theme-select').value = theme;
 }
 
@@ -70,6 +102,15 @@ function handleThemeChange() {
     applyTheme();
 }
 
+async function handleSaveCreds() {
+    clientId = document.getElementById('client-id-input').value.trim();
+    clientSecret = document.getElementById('client-secret-input').value.trim();
+    await idbSet('client_id', clientId);
+    await idbSet('client_secret', clientSecret);
+    showToast('Credentials saved', 'success', 2, 40, 200, 'upper middle');
+    document.getElementById('first-run').classList.add('hidden');
+}
+
 function handleAuthBtn() {
     console.log('auth-btn clicked');
     if(accessToken) {
@@ -86,13 +127,13 @@ function handleAuthBtn() {
 // 1. Added client ID check to show configuration error.
 // 2. Styled toast for better readability.
 function startOAuth() {
-    if(CLIENT_ID === 'YOUR_CLIENT_ID') {
-        showToast('Configure GITHUB_CLIENT_ID before connecting', 'error', 3, 40, 200, 'upper middle');
+    if(!clientId || !clientSecret) {
+        showToast('Enter your GitHub credentials first', 'error', 3, 40, 200, 'upper middle');
         return;
     }
     const state = btoa(Math.random().toString(36).substring(2));
     localStorage.setItem('oauth_state', state);
-    const authURL = `https://github.com/login/oauth/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=repo&state=${state}`;
+    const authURL = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=repo&state=${state}`;
     window.open(authURL, '_blank');
 }
 
@@ -109,7 +150,7 @@ function handleRedirect() {
         fetch(EXCHANGE_URL, {
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({code})
+            body:JSON.stringify({code, client_id: clientId, client_secret: clientSecret})
         }).then(r=>r.json()).then(data=>{
             accessToken = data.access_token;
             if(accessToken) {
@@ -250,13 +291,21 @@ async function copySelected(){
     showToast(`${tokens} Tokens copied`,'success',3,40,200,'upper middle');
 }
 
-function init(){
+async function init(){
+    await openDB();
+    clientId = await idbGet('client_id');
+    clientSecret = await idbGet('client_secret');
     applyTheme();
     updateRepoLabels();
     handleRedirect();
+    if(!clientId || !clientSecret){
+        openSettings();
+        document.getElementById('first-run').classList.remove('hidden');
+    }
     document.getElementById('settings-btn').addEventListener('click', openSettings);
     document.getElementById('settings-close').addEventListener('click', closeSettings);
     document.getElementById('auth-btn').addEventListener('click', handleAuthBtn);
+    document.getElementById('save-creds').addEventListener('click', handleSaveCreds);
     document.getElementById('repo-label').addEventListener('click', openRepoModal);
     document.getElementById('branch-label').addEventListener('click', openRepoModal);
     document.getElementById('modal-close').addEventListener('click', confirmRepoBranch);
