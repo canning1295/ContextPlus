@@ -32,7 +32,7 @@ return fetch('https://github.com/login/oauth/access_token', {
 ```
 
 ## Client Configuration
-Edit `app.js` and replace `YOUR_CLIENT_ID` with the Client ID from your OAuth app. Set `EXCHANGE_URL` to the URL of your token exchange proxy. A simple Node server (`server.js`) is provided in this repo and exposes `/api/exchange` when run with your credentials:
+Edit `app.js` and replace `YOUR_CLIENT_ID` with the Client ID from your OAuth app (or create `config.js` with `window.GITHUB_CLIENT_ID`). Set `EXCHANGE_URL` (or `window.EXCHANGE_URL`) to the URL of your token exchange proxy. A simple Node server (`server.js`) is provided in this repo and exposes `/api/exchange` when run with your credentials:
 
 ```bash
 GITHUB_CLIENT_ID=<your_id> GITHUB_CLIENT_SECRET=<your_secret> node server.js

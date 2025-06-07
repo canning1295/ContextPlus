@@ -3,7 +3,8 @@
 // editing this file in production. Fallback to the placeholder string.
 const CLIENT_ID = window.GITHUB_CLIENT_ID || 'YOUR_CLIENT_ID';
 const REDIRECT_URI = window.location.origin + window.location.pathname;
-const EXCHANGE_URL = '/api/exchange'; // endpoint to exchange code for token
+// Allow override via config.js for serverless deployments
+const EXCHANGE_URL = window.EXCHANGE_URL || '/api/exchange'; // endpoint to exchange code for token
 
 let accessToken = localStorage.getItem('gh_token') || null;
 let currentRepo = JSON.parse(localStorage.getItem('current_repo') || 'null');
