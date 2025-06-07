@@ -187,7 +187,7 @@ function closeRepoModal() {
 function loadRepos() {
     if(DEBUG) console.log('Fetching repositories');
     fetch('https://api.github.com/user/repos?per_page=100', {
-        headers:{Authorization:`Bearer ${accessToken}`, Accept:'application/vnd.github+json'}
+        headers:{Authorization:`token ${accessToken}`, Accept:'application/vnd.github+json'}
     })
     .then(async r=>{
         if(DEBUG) console.log('Repos response status', r.status);
@@ -214,7 +214,7 @@ function loadBranches() {
     const [owner, repo]=repoFull.split('/');
     if(DEBUG) console.log('Fetching branches for', repoFull);
     fetch(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=100`, {
-        headers:{Authorization:`Bearer ${accessToken}`, Accept:'application/vnd.github+json'}
+        headers:{Authorization:`token ${accessToken}`, Accept:'application/vnd.github+json'}
     })
     .then(async r=>{
         if(DEBUG) console.log('Branches response status', r.status);
@@ -256,7 +256,7 @@ function loadFileTree() {
     }
     const url=`https://api.github.com/repos/${currentRepo.owner}/${currentRepo.repo}/git/trees/${currentBranch}?recursive=1`;
     if(DEBUG) console.log('Fetching file tree', url);
-    fetch(url,{headers:{Authorization:`Bearer ${accessToken}`,Accept:'application/vnd.github+json'}})
+    fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'}})
     .then(async r=>{
         if(DEBUG) console.log('Tree response status', r.status);
         const data = await r.json();
@@ -314,7 +314,7 @@ async function copySelected(){
     const contents=[];
     for(const p of paths){
         const url=`https://raw.githubusercontent.com/${currentRepo.full_name}/${currentBranch}/${p}`;
-        const resp=await fetch(url,{headers:{Authorization:`Bearer ${accessToken}`}});
+        const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`}});
         const text=await resp.text();
         contents.push(`// ${p}\n`+text);
     }
@@ -328,9 +328,17 @@ async function init(){
     await openDB();
     clientId = await idbGet('client_id');
     clientSecret = await idbGet('client_secret');
+    document.getElementById('client-id-input').value = clientId || '';
+    document.getElementById('client-secret-input').value = clientSecret || '';
     applyTheme();
     updateRepoLabels();
     handleRedirect();
+    if(accessToken){
+        loadRepos();
+        if(currentRepo && currentBranch){
+            loadFileTree();
+        }
+    }
     if(!clientId || !clientSecret || !accessToken){
         openSettings();
     }
