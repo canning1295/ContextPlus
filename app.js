@@ -30,7 +30,10 @@ function idbGet(key) {
         const tx = db.transaction('settings');
         const store = tx.objectStore('settings');
         const getReq = store.get(key);
-        getReq.onsuccess = () => resolve(getReq.result);
+        getReq.onsuccess = () => {
+            if(DEBUG) console.log('idbGet', key, getReq.result);
+            resolve(getReq.result);
+        };
         getReq.onerror = () => resolve(null);
     });
 }
@@ -39,7 +42,10 @@ function idbSet(key, val) {
     return new Promise(resolve => {
         const tx = db.transaction('settings', 'readwrite');
         tx.objectStore('settings').put(val, key);
-        tx.oncomplete = () => resolve();
+        tx.oncomplete = () => {
+            if(DEBUG) console.log('idbSet', key, val);
+            resolve();
+        };
     });
 }
 
@@ -74,6 +80,7 @@ function updateRepoLabels() {
 // 2. Added stopPropagation when closing to prevent immediate reopen.
 // 3. Current fix ensures inline styles don't interfere with display.
 function openSettings() {
+    if(DEBUG) console.log('openSettings called', {accessToken, clientId, clientSecret});
     const modal = document.getElementById('settings-modal');
     // ensure display resets in case inline styles were added while debugging
     modal.style.display = 'flex';
@@ -342,9 +349,9 @@ async function copySelected(){
         const text=await resp.text();
         contents.push(`// ${p}\n`+text);
     }
-    const text=contents.join('\n\n');
-    await navigator.clipboard.writeText(text);
-    const tokens=Math.ceil(text.length/4.7);
+    const clipText=contents.join('\n\n');
+    await navigator.clipboard.writeText(String(clipText));
+    const tokens=Math.ceil(clipText.length/4.7);
     showToast(`${tokens} Tokens copied`,'success',3,40,200,'upper middle');
 }
 
@@ -354,6 +361,7 @@ async function init(){
     clientSecret = await idbGet('client_secret');
     document.getElementById('client-id-input').value = clientId || '';
     document.getElementById('client-secret-input').value = clientSecret || '';
+    if(DEBUG) console.log('Init state',{accessToken,clientId,clientSecret,currentRepo,currentBranch});
     applyTheme();
     updateRepoLabels();
     handleRedirect();
@@ -364,6 +372,7 @@ async function init(){
         }
     }
     if(!accessToken && (!clientId || !clientSecret)){
+        if(DEBUG) console.log('Opening settings because', {accessToken, clientId, clientSecret});
         openSettings();
     }
     if(!accessToken){
