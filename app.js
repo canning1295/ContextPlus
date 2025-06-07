@@ -36,8 +36,14 @@ function updateRepoLabels() {
     document.getElementById('branch-label').textContent = currentBranch ? ' - ' + currentBranch : '';
 }
 
+// Settings modal close bug fix history:
+// 1. Switched to addEventListener to avoid duplicate handlers.
+// 2. Added stopPropagation when closing to prevent immediate reopen.
+// 3. Current fix ensures inline styles don't interfere with display.
 function openSettings() {
     const modal = document.getElementById('settings-modal');
+    // ensure display resets in case inline styles were added while debugging
+    modal.style.display = 'flex';
     modal.classList.remove('hidden');
     document.getElementById('auth-status').textContent = accessToken ? 'Connected' : 'Not connected';
     if(accessToken){
@@ -51,7 +57,10 @@ function openSettings() {
 function closeSettings(e) {
     // stopPropagation ensures the modal doesn't immediately reopen
     if(e) e.stopPropagation();
-    document.getElementById('settings-modal').classList.add('hidden');
+    const modal = document.getElementById('settings-modal');
+    modal.classList.add('hidden');
+    // explicitly hide in case class removal fails
+    modal.style.display = 'none';
 }
 
 function handleThemeChange() {
@@ -72,6 +81,9 @@ function handleAuthBtn() {
     closeSettings();
 }
 
+// GitHub OAuth error toast fix history:
+// 1. Added client ID check to show configuration error.
+// 2. Styled toast for better readability.
 function startOAuth() {
     if(CLIENT_ID === 'YOUR_CLIENT_ID') {
         showToast('Configure GITHUB_CLIENT_ID before connecting', 'error', 3, 40, 200, 'upper middle');
