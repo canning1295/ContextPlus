@@ -38,11 +38,16 @@ function openSettings() {
     const modal = document.getElementById('settings-modal');
     modal.classList.remove('hidden');
     document.getElementById('auth-status').textContent = accessToken ? 'Connected' : 'Not connected';
-    document.getElementById('auth-btn').textContent = accessToken ? '❌ Disconnect' : '🐙 Connect GitHub';
+    if(accessToken){
+        document.getElementById('auth-btn').innerHTML = '❌ Disconnect';
+    } else {
+        document.getElementById('auth-btn').innerHTML = '<img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" class="icon"> Connect GitHub';
+    }
     document.getElementById('theme-select').value = theme;
 }
 
 function closeSettings() {
+    console.log('settings-close clicked');
     document.getElementById('settings-modal').classList.add('hidden');
 }
 
@@ -53,6 +58,7 @@ function handleThemeChange() {
 }
 
 function handleAuthBtn() {
+    console.log('auth-btn clicked');
     if(accessToken) {
         localStorage.removeItem('gh_token');
         accessToken = null;
@@ -228,7 +234,7 @@ async function copySelected(){
     showToast(`${tokens} Tokens copied`,'success',3,40,200,'upper middle');
 }
 
-document.addEventListener('DOMContentLoaded',()=>{
+function init(){
     applyTheme();
     updateRepoLabels();
     handleRedirect();
@@ -244,4 +250,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     document.getElementById('theme-select').onchange=handleThemeChange;
     document.getElementById('settings-modal').onclick=closeSettings;
     document.getElementById('settings-content').onclick=e=>e.stopPropagation();
-});
+}
+
+init();
