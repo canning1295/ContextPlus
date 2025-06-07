@@ -6,6 +6,7 @@ exports.handler = async function(event) {
   if (!code || !client_id || !client_secret) {
     return { statusCode: 400, body: JSON.stringify({ error: 'Missing parameters' }) };
   }
+  console.log('Exchange function body', { code, client_id });
   try {
     const params = new URLSearchParams({
       client_id,
@@ -19,6 +20,7 @@ exports.handler = async function(event) {
       headers: { Accept: 'application/json' }
     });
     const data = await resp.json();
+    console.log('Exchange function response', data);
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json' },
