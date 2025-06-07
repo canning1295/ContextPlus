@@ -24,7 +24,14 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 button { border-radius:6px; cursor:pointer; }
 .icon { width:20px; height:20px; vertical-align:middle; margin-right:4px; }
 #toast-container { position: fixed; width: 100%; pointer-events: none; }
-.toast { position: absolute; padding:4px 8px; color:white; }
+.toast { /* Toast visibility history: width fix v2 */
+  position: absolute;
+  padding: 4px 8px;
+  color: white;
+  max-width: 90%;
+  word-break: break-word; /* allow long messages to wrap */
+  text-align: center;
+}
 .toast.success { background: green; }
 .toast.warning { background: orange; }
 .toast.error { background: red; }
