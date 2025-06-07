@@ -4,8 +4,9 @@ A simple client-side web app to browse and copy files from your GitHub repositor
 
 ## Development
 
-1. Replace `YOUR_CLIENT_ID` in `app.js` with your GitHub OAuth App client ID.
+1. Set `window.GITHUB_CLIENT_ID` (or replace `YOUR_CLIENT_ID` in `app.js`) with your GitHub OAuth App client ID.
 2. Provide an endpoint at `EXCHANGE_URL` that exchanges OAuth codes for access tokens.
+   See [docs/GITHUB_OAUTH.md](docs/GITHUB_OAUTH.md) for a detailed setup guide.
 3. Serve the files with any static server.
 
 ## Usage

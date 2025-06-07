@@ -1,5 +1,7 @@
 // Configuration - replace with your GitHub OAuth app details
-const CLIENT_ID = 'YOUR_CLIENT_ID';
+// `GITHUB_CLIENT_ID` can be defined in a separate script tag to avoid
+// editing this file in production. Fallback to the placeholder string.
+const CLIENT_ID = window.GITHUB_CLIENT_ID || 'YOUR_CLIENT_ID';
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 const EXCHANGE_URL = '/api/exchange'; // endpoint to exchange code for token
 
@@ -46,8 +48,9 @@ function openSettings() {
     document.getElementById('theme-select').value = theme;
 }
 
-function closeSettings() {
-    console.log('settings-close clicked');
+function closeSettings(e) {
+    // stopPropagation ensures the modal doesn't immediately reopen
+    if(e) e.stopPropagation();
     document.getElementById('settings-modal').classList.add('hidden');
 }
 
@@ -71,7 +74,7 @@ function handleAuthBtn() {
 
 function startOAuth() {
     if(CLIENT_ID === 'YOUR_CLIENT_ID') {
-        showToast('Set CLIENT_ID in app.js', 'error', 3, 40, 200, 'upper middle');
+        showToast('Configure GITHUB_CLIENT_ID before connecting', 'error', 3, 40, 200, 'upper middle');
         return;
     }
     const state = btoa(Math.random().toString(36).substring(2));
@@ -238,18 +241,18 @@ function init(){
     applyTheme();
     updateRepoLabels();
     handleRedirect();
-    document.getElementById('settings-btn').onclick=openSettings;
-    document.getElementById('settings-close').onclick=closeSettings;
-    document.getElementById('auth-btn').onclick=handleAuthBtn;
-    document.getElementById('repo-label').onclick=openRepoModal;
-    document.getElementById('branch-label').onclick=openRepoModal;
-    document.getElementById('modal-close').onclick=confirmRepoBranch;
-    document.getElementById('repo-select').onchange=loadBranches;
-    document.getElementById('copy-btn').onclick=copySelected;
-    document.getElementById('refresh-btn').onclick=loadFileTree;
-    document.getElementById('theme-select').onchange=handleThemeChange;
-    document.getElementById('settings-modal').onclick=closeSettings;
-    document.getElementById('settings-content').onclick=e=>e.stopPropagation();
+    document.getElementById('settings-btn').addEventListener('click', openSettings);
+    document.getElementById('settings-close').addEventListener('click', closeSettings);
+    document.getElementById('auth-btn').addEventListener('click', handleAuthBtn);
+    document.getElementById('repo-label').addEventListener('click', openRepoModal);
+    document.getElementById('branch-label').addEventListener('click', openRepoModal);
+    document.getElementById('modal-close').addEventListener('click', confirmRepoBranch);
+    document.getElementById('repo-select').addEventListener('change', loadBranches);
+    document.getElementById('copy-btn').addEventListener('click', copySelected);
+    document.getElementById('refresh-btn').addEventListener('click', loadFileTree);
+    document.getElementById('theme-select').addEventListener('change', handleThemeChange);
+    document.getElementById('settings-modal').addEventListener('click', closeSettings);
+    document.getElementById('settings-content').addEventListener('click', e=>e.stopPropagation());
 }
 
 init();
