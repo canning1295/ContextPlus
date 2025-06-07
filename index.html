@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ContextPlus</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="top-bar">
+        <div id="repo-section">
+            <span id="repo-label">No repo selected</span>
+            <span id="branch-label"></span>
+            <button id="refresh-btn" title="Refresh">&#x21bb;</button>
+        </div>
+        <button id="settings-btn" title="Settings">&#9881;</button>
+    </div>
+
+    <div id="content">
+        <button id="copy-btn">Copy Selected</button>
+        <div id="file-tree"></div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <div id="modal-overlay" class="hidden">
+        <div id="modal">
+            <h2>Select Repository</h2>
+            <select id="repo-select"></select>
+            <h2>Select Branch</h2>
+            <select id="branch-select"></select>
+            <button id="modal-close">Close</button>
+        </div>
+    </div>
+
+    <div id="settings-modal" class="hidden">
+        <div id="settings-content">
+            <h2>Settings</h2>
+            <div id="auth-section">
+                <p id="auth-status">Not connected</p>
+                <button id="auth-btn">Connect GitHub</button>
+            </div>
+            <button id="settings-close">Close</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
