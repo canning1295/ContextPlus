@@ -16,9 +16,13 @@ let currentRepo = JSON.parse(localStorage.getItem('current_repo') || 'null');
 let currentBranch = localStorage.getItem('current_branch');
 let theme = localStorage.getItem('theme') || 'light';
 
+// openDB hang fix history:
+// 1. Added fallback timeout to ensure init proceeds even if request events never fire.
 function openDB() {
     return new Promise(resolve => {
         log('openDB start');
+        let finished = false;
+        const done = () => { if(!finished){ finished = true; resolve(); } };
         try {
             const req = indexedDB.open('contextplus', 2);
             req.onupgradeneeded = e => {
@@ -30,16 +34,17 @@ function openDB() {
             req.onsuccess = e => {
                 db = e.target.result;
                 log('openDB success');
-                resolve();
+                done();
             };
             req.onerror = e => {
                 log('openDB error', e); // continue without IndexedDB
-                resolve();
+                done();
             };
         } catch(err) {
             log('openDB exception', err);
-            resolve();
+            done();
         }
+        setTimeout(() => { log('openDB timeout'); done(); }, 3000);
     });
 }
 
@@ -723,14 +728,14 @@ async function init(){
     if(!accessToken){
         document.getElementById('first-run').classList.remove('hidden');
     }
-    document.getElementById('settings-btn').addEventListener('click', openSettings);
-    document.getElementById('settings-close').addEventListener('click', closeSettings);
+    document.getElementById('settings-btn').addEventListener('click', () => { log('settings-btn click'); openSettings(); });
+    document.getElementById('settings-close').addEventListener('click', (e) => { log('settings-close click'); closeSettings(e); });
     document.getElementById('auth-btn').addEventListener('click', handleAuthBtn);
     const ghBtn = document.getElementById('open-github');
     if(ghBtn) ghBtn.addEventListener('click', openGitHubSettings);
-    document.getElementById('repo-label').addEventListener('click', openRepoModal);
-    document.getElementById('branch-label').addEventListener('click', openRepoModal);
-    document.getElementById('modal-close').addEventListener('click', confirmRepoBranch);
+    document.getElementById('repo-label').addEventListener('click', () => { log('repo-label click'); openRepoModal(); });
+    document.getElementById('branch-label').addEventListener('click', () => { log('branch-label click'); openRepoModal(); });
+    document.getElementById('modal-close').addEventListener('click', () => { log('modal-close click'); confirmRepoBranch(); });
     document.getElementById('repo-select').addEventListener('change', loadBranches);
     document.getElementById('copy-btn').addEventListener('click', copySelected);
     document.getElementById('select-all-btn').addEventListener('click', selectAll);
@@ -738,13 +743,13 @@ async function init(){
     document.getElementById('file-tree').addEventListener('change', handleFolderToggle);
     document.getElementById('refresh-btn').addEventListener('click', loadFileTree);
     document.getElementById('theme-select').addEventListener('change', handleThemeChange);
-    document.getElementById('settings-modal').addEventListener('click', closeSettings);
+    document.getElementById('settings-modal').addEventListener('click', (e) => { log('settings-modal background click'); closeSettings(e); });
     document.getElementById('settings-content').addEventListener('click', e=>e.stopPropagation());
-    document.getElementById('create-instruction').addEventListener('click', ()=>openInstructionModal());
-    document.getElementById('instruction-close').addEventListener('click', closeInstructionModal);
+    document.getElementById('create-instruction').addEventListener('click', () => { log('create-instruction click'); openInstructionModal(); });
+    document.getElementById('instruction-close').addEventListener('click', (e) => { log('instruction-close click'); closeInstructionModal(e); });
     document.getElementById('instruction-save').addEventListener('click', saveInstruction);
     document.getElementById('instruction-delete').addEventListener('click', deleteInstruction);
-    document.getElementById('instruction-modal').addEventListener('click', closeInstructionModal);
+    document.getElementById('instruction-modal').addEventListener('click', (e) => { log('instruction-modal background click'); closeInstructionModal(e); });
     document.getElementById('instruction-content').addEventListener('click', e=>e.stopPropagation());
     loadInstructions();
     log('init listeners attached');
