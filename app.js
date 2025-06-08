@@ -14,9 +14,12 @@ let theme = localStorage.getItem('theme') || 'light';
 
 function openDB() {
     return new Promise(resolve => {
-        const req = indexedDB.open('contextplus', 1);
+        const req = indexedDB.open('contextplus', 2);
         req.onupgradeneeded = e => {
-            e.target.result.createObjectStore('settings');
+            const db = e.target.result;
+            if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
+            if(!db.objectStoreNames.contains('instructions')) db.createObjectStore('instructions', { keyPath: 'id', autoIncrement: true });
+            if(!db.objectStoreNames.contains('descriptions')) db.createObjectStore('descriptions', { keyPath: ['repo','path'] });
         };
         req.onsuccess = e => {
             db = e.target.result;
@@ -25,10 +28,10 @@ function openDB() {
     });
 }
 
-function idbGet(key) {
+function idbGet(key, storeName='settings') {
     return new Promise(resolve => {
-        const tx = db.transaction('settings');
-        const store = tx.objectStore('settings');
+        const tx = db.transaction(storeName);
+        const store = tx.objectStore(storeName);
         const getReq = store.get(key);
         getReq.onsuccess = () => {
             if(DEBUG) console.log('idbGet', key, getReq.result);
@@ -38,10 +41,10 @@ function idbGet(key) {
     });
 }
 
-function idbSet(key, val) {
+function idbSet(key, val, storeName='settings') {
     return new Promise(resolve => {
-        const tx = db.transaction('settings', 'readwrite');
-        tx.objectStore('settings').put(val, key);
+        const tx = db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).put(val, key);
         tx.oncomplete = () => {
             if(DEBUG) console.log('idbSet', key, val);
             resolve();
@@ -114,6 +117,85 @@ function handleThemeChange() {
 
 function openGitHubSettings(){
     window.open('https://github.com/settings/applications/new', '_blank');
+}
+
+let instructionsData = [];
+let currentInstructionId = null;
+
+function loadInstructions(){
+    const tx = db.transaction('instructions');
+    const store = tx.objectStore('instructions');
+    const req = store.getAll();
+    req.onsuccess = () => {
+        instructionsData = req.result || [];
+        renderInstructions();
+    };
+}
+
+function renderInstructions(){
+    const list = document.getElementById('instructions-list');
+    list.innerHTML = '';
+    instructionsData.forEach(instr => {
+        const div = document.createElement('div');
+        const toggle = document.createElement('input');
+        toggle.type='checkbox';
+        toggle.className='instruction-toggle';
+        toggle.dataset.id=instr.id;
+        toggle.addEventListener('change', updateOutputCards);
+        const span = document.createElement('span');
+        span.textContent = instr.title;
+        div.appendChild(toggle);
+        div.appendChild(span);
+        list.appendChild(div);
+    });
+    updateOutputCards();
+}
+
+function openInstructionModal(id=null){
+    currentInstructionId = id;
+    const modal = document.getElementById('instruction-modal');
+    const titleEl = document.getElementById('instruction-title');
+    const textEl = document.getElementById('instruction-text');
+    if(id){
+        const instr = instructionsData.find(i=>i.id===id);
+        titleEl.value = instr ? instr.title : '';
+        textEl.value = instr ? instr.text : '';
+    } else {
+        titleEl.value='';
+        textEl.value='';
+    }
+    modal.style.display='flex';
+    modal.classList.remove('hidden');
+}
+
+function closeInstructionModal(){
+    const modal = document.getElementById('instruction-modal');
+    modal.classList.add('hidden');
+    modal.style.display='none';
+    currentInstructionId=null;
+}
+
+function saveInstruction(){
+    const title=document.getElementById('instruction-title').value.trim();
+    const text=document.getElementById('instruction-text').value.trim();
+    if(!title) { showToast('Title required','warning'); return; }
+    const store = db.transaction('instructions','readwrite').objectStore('instructions');
+    if(currentInstructionId){
+        store.put({id:currentInstructionId,title,text});
+    } else {
+        store.add({title,text});
+    }
+    store.transaction.oncomplete=()=>{ loadInstructions(); closeInstructionModal(); };
+}
+
+function deleteInstruction(){
+    if(currentInstructionId){
+        const store = db.transaction('instructions','readwrite').objectStore('instructions');
+        store.delete(currentInstructionId);
+        store.transaction.oncomplete=()=>{ loadInstructions(); closeInstructionModal(); };
+    } else {
+        closeInstructionModal();
+    }
 }
 
 function handleAuthBtn() {
@@ -274,6 +356,8 @@ function loadFileTree() {
         return data;
     }).then(data=>{
         buildTree(data.tree);
+        buildDescTree(data.tree);
+        updateOutputCards();
     });
 }
 
@@ -295,31 +379,170 @@ function buildTree(tree) {
     container.appendChild(ul);
 }
 
+function buildDescTree(tree){
+    const container=document.getElementById('desc-tree');
+    if(!container) return;
+    container.innerHTML='';
+    const root={};
+    tree.forEach(item=>{
+        const parts=item.path.split('/');
+        let node=root;
+        parts.forEach((part,i)=>{
+            if(!node[part]) node[part]={};
+            if(i===parts.length-1) node[part]._item=item;
+            node=node[part];
+        });
+    });
+    const ul=document.createElement('ul');
+    createDescList(root,ul);
+    container.appendChild(ul);
+}
+
+function createDescList(obj,parent){
+    Object.keys(obj).forEach(key=>{
+        if(key==='_item') return;
+        const li=document.createElement('li');
+        const checkbox=document.createElement('input');
+        checkbox.type='checkbox';
+        const hasChildren=Object.keys(obj[key]).some(k=>k!=='_item');
+        const isFolder=hasChildren;
+        if(isFolder){
+            const parentPath=getParentPath(parent);
+            checkbox.dataset.folder='true';
+            checkbox.dataset.path=parentPath?`${parentPath}/${key}`:key;
+        }else{
+            checkbox.dataset.path=obj[key]._item.path;
+        }
+        checkbox.addEventListener('change', updateOutputCards);
+        const statusSpan=document.createElement('span');
+        statusSpan.className='desc-status';
+        loadDescriptionStatus(checkbox.dataset.path).then(stat=>{
+            statusSpan.textContent=stat;
+        });
+        li.appendChild(checkbox);
+        li.appendChild(document.createTextNode(' '+key+' '));
+        li.appendChild(statusSpan);
+        parent.appendChild(li);
+        if(hasChildren){
+            const ul=document.createElement('ul');
+            createDescList(obj[key],ul);
+            li.appendChild(ul);
+        }
+    });
+}
+
+function loadDescriptionStatus(path){
+    return new Promise(resolve=>{
+        const key=[currentRepo?currentRepo.full_name:'', path];
+        const tx=db.transaction('descriptions');
+        const store=tx.objectStore('descriptions');
+        const req=store.get(key);
+        req.onsuccess=()=>{
+            const rec=req.result;
+            if(!rec) resolve('❌');
+            else if(rec.na) resolve('🚫');
+            else resolve('✅');
+        };
+        req.onerror=()=>resolve('❌');
+    });
+}
+
+async function updateOutputCards(){
+    const container=document.getElementById('output-cards');
+    container.innerHTML='';
+    const cards=[];
+    const filePaths=getSelectedPaths();
+    if(filePaths.length){
+        const contents=[];
+        for(const p of filePaths){
+            const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
+            const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
+            const text=await resp.text();
+            contents.push(text);
+        }
+        const total=contents.join('\n').length;
+        const tokens=Math.ceil(total/4.7);
+        const card=document.createElement('div');
+        card.className='card';
+        card.draggable=true;
+        card.dataset.type='files';
+        card.dataset.paths=JSON.stringify(filePaths);
+        card.dataset.tokens=tokens;
+        card.textContent=`Selected Files - ${tokens} tokens`;
+        cards.push(card);
+    }
+    const selectedInstr=document.querySelectorAll('.instruction-toggle:checked');
+    selectedInstr.forEach(cb=>{
+        const instr=instructionsData.find(i=>i.id==cb.dataset.id);
+        if(instr){
+            const tokens=Math.ceil(instr.text.length/4.7);
+            const card=document.createElement('div');
+            card.className='card';
+            card.draggable=true;
+            card.dataset.type='instruction';
+            card.dataset.id=instr.id;
+            card.dataset.tokens=tokens;
+            card.textContent=`${instr.title} - ${tokens} tokens`;
+            cards.push(card);
+        }
+    });
+    const descChecks=document.querySelectorAll('#desc-tree input[type=checkbox]:checked');
+    if(descChecks.length){
+        let total=0; // not computing actual lengths as descriptions not loaded
+        const card=document.createElement('div');
+        card.className='card';
+        card.draggable=true;
+        card.dataset.type='descriptions';
+        card.dataset.tokens=total;
+        card.textContent=`File Descriptions`;
+        cards.push(card);
+    }
+    cards.forEach(c=>container.appendChild(c));
+    initDrag(container);
+    updateTotalTokens();
+}
+
+function initDrag(container){
+    let dragEl=null;
+    container.querySelectorAll('.card').forEach(card=>{
+        card.addEventListener('dragstart',e=>{dragEl=card; card.classList.add('dragging');});
+        card.addEventListener('dragend',e=>{card.classList.remove('dragging'); updateTotalTokens();});
+        card.addEventListener('dragover',e=>{e.preventDefault(); const after=getDragAfterElement(container,e.clientY); if(after==null) container.appendChild(dragEl); else container.insertBefore(dragEl, after);});
+    });
+}
+
+function getDragAfterElement(container,y){
+    const els=[...container.querySelectorAll('.card:not(.dragging)')];
+    return els.reduce((closest,child)=>{
+        const box=child.getBoundingClientRect();
+        const offset=y-box.top-box.height/2;
+        if(offset<0 && offset>closest.offset){
+            return {offset,element:child};
+        }else{ return closest; }
+    },{offset:-Infinity}).element;
+}
+
+function updateTotalTokens(){
+    const container=document.getElementById('output-cards');
+    let total=0;
+    container.querySelectorAll('.card').forEach(c=>{total+=Number(c.dataset.tokens)||0;});
+    document.getElementById('total-tokens').textContent=`(${total} tokens)`;
+}
+
 function createList(obj,parent){
     Object.keys(obj).forEach(key=>{
         if(key==='_item') return;
         const li=document.createElement('li');
         const checkbox=document.createElement('input');
         checkbox.type='checkbox';
-        
-        // Debug the folder detection
-        const hasItem = !!obj[key]._item;
+
         const hasChildren = Object.keys(obj[key]).some(k=>k!=='_item');
-        const isFolder = hasChildren; // Change this logic
-        
-        console.log(`Creating item: ${key}`, {
-            hasItem,
-            hasChildren,
-            isFolder,
-            keys: Object.keys(obj[key])
-        });
+        const isFolder = hasChildren;
         
         if(isFolder) {
             checkbox.dataset.folder='true';
-            // For folders, we need to construct the path properly
             const parentPath = getParentPath(parent);
             checkbox.dataset.path = parentPath ? `${parentPath}/${key}` : key;
-            console.log(`Set folder data for: ${key}, path: ${checkbox.dataset.path}`);
         } else {
             // For files, use the actual item path
             checkbox.dataset.path = obj[key]._item.path;
@@ -346,35 +569,23 @@ function getParentPath(ul) {
 }
 
 function handleFolderToggle(e){
-    console.log('handleFolderToggle triggered', {
-        target: e.target,
-        isFolder: !!e.target.dataset.folder,
-        checked: e.target.checked,
-        path: e.target.dataset.path
-    });
-    
     if(e.target.dataset.folder){
         const li = e.target.closest('li');
-        console.log('Found parent li:', li);
-        
+
         if(li){
             // Select/deselect all checkboxes within this folder
             const boxes = li.querySelectorAll('ul input[type=checkbox]');
-            console.log('Found child checkboxes:', boxes.length, boxes);
-            
-            boxes.forEach((cb, index) => { 
-                console.log(`Setting checkbox ${index} (${cb.dataset.path}) to ${e.target.checked}`);
-                cb.checked = e.target.checked; 
+            boxes.forEach((cb) => {
+                cb.checked = e.target.checked;
             });
         }
     }
     // Update parent folder states based on children
     updateParentFolderStates(e.target);
+    updateOutputCards();
 }
 
 function updateParentFolderStates(checkbox) {
-    console.log('updateParentFolderStates called for:', checkbox.dataset.path);
-    
     let currentLi = checkbox.closest('li');
     
     // Traverse up the tree to update parent folder states
@@ -382,32 +593,24 @@ function updateParentFolderStates(checkbox) {
         const parentUl = currentLi.parentElement;
         const parentLi = parentUl ? parentUl.closest('li') : null;
         
-        console.log('Checking parent:', parentLi);
-        
         if(parentLi) {
             const parentCheckbox = parentLi.querySelector('input[type=checkbox][data-folder="true"]');
-            console.log('Parent checkbox found:', parentCheckbox);
-            
+
             if(parentCheckbox) {
                 // Get all child checkboxes in this parent folder
                 const childCheckboxes = parentLi.querySelectorAll('ul input[type=checkbox]');
                 const checkedChildren = parentLi.querySelectorAll('ul input[type=checkbox]:checked');
-                
-                console.log(`Parent ${parentCheckbox.dataset.path}: ${checkedChildren.length}/${childCheckboxes.length} children checked`);
-                
+
                 // Update parent state based on children
                 if(checkedChildren.length === 0) {
                     parentCheckbox.checked = false;
                     parentCheckbox.indeterminate = false;
-                    console.log('Set parent to unchecked');
                 } else if(checkedChildren.length === childCheckboxes.length) {
                     parentCheckbox.checked = true;
                     parentCheckbox.indeterminate = false;
-                    console.log('Set parent to checked');
                 } else {
                     parentCheckbox.checked = false;
                     parentCheckbox.indeterminate = true;
-                    console.log('Set parent to indeterminate');
                 }
             }
         }
@@ -418,10 +621,12 @@ function updateParentFolderStates(checkbox) {
 
 function selectAll(){
     document.querySelectorAll('#file-tree input[type=checkbox]').forEach(cb=>cb.checked=true);
+    updateOutputCards();
 }
 
 function deselectAll(){
     document.querySelectorAll('#file-tree input[type=checkbox]').forEach(cb=>cb.checked=false);
+    updateOutputCards();
 }
 
 function getSelectedPaths(){
@@ -432,23 +637,37 @@ function getSelectedPaths(){
 }
 
 async function copySelected(){
-    const paths=getSelectedPaths();
-    if(!paths.length){
-        showToast('No files selected','warning',2,40,200,'upper middle');
+    const container=document.getElementById('output-cards');
+    if(!container.children.length){
+        showToast('Nothing selected','warning');
         return;
     }
-    const contents=[];
-    for(const p of paths){
-        const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
-        const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
-        const text=await resp.text();
-        contents.push(`// ${p}\n`+text);
+    const parts=[];
+    for(const card of container.children){
+        if(card.dataset.type==='files'){
+            const paths=JSON.parse(card.dataset.paths||'[]');
+            for(const p of paths){
+                const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
+                const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
+                const text=await resp.text();
+                parts.push(`// ${p}\n`+text);
+            }
+        }else if(card.dataset.type==='instruction'){
+            const instr=instructionsData.find(i=>i.id==card.dataset.id);
+            if(instr) parts.push(instr.text);
+        }else if(card.dataset.type==='descriptions'){
+            const descChecks=document.querySelectorAll('#desc-tree input[type=checkbox]:checked');
+            for(const cb of descChecks){
+                const key=[currentRepo.full_name, cb.dataset.path];
+                const rec=await idbGet(key,'descriptions');
+                if(rec && rec.text) parts.push(rec.text);
+            }
+        }
     }
-    const clipText=contents.join('\n\n');
+    const clipText=parts.join('\n\n');
     await navigator.clipboard.writeText(String(clipText));
     const tokens=Math.ceil(clipText.length/4.7);
-    const tokenStr=tokens.toLocaleString();
-    showToast(`${paths.length} files / ${tokenStr} tokens copied to clipboard`,'success',3,40,200,'upper middle');
+    showToast(`${tokens} tokens copied to clipboard`,'success',3,40,200,'upper middle');
 }
 
 async function init(){
@@ -491,6 +710,13 @@ async function init(){
     document.getElementById('theme-select').addEventListener('change', handleThemeChange);
     document.getElementById('settings-modal').addEventListener('click', closeSettings);
     document.getElementById('settings-content').addEventListener('click', e=>e.stopPropagation());
+    document.getElementById('create-instruction').addEventListener('click', ()=>openInstructionModal());
+    document.getElementById('instruction-close').addEventListener('click', closeInstructionModal);
+    document.getElementById('instruction-save').addEventListener('click', saveInstruction);
+    document.getElementById('instruction-delete').addEventListener('click', deleteInstruction);
+    document.getElementById('instruction-modal').addEventListener('click', closeInstructionModal);
+    document.getElementById('instruction-content').addEventListener('click', e=>e.stopPropagation());
+    loadInstructions();
 }
 
 init();
