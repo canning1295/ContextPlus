@@ -154,6 +154,9 @@ function renderInstructions(){
     updateOutputCards();
 }
 
+// Instruction modal open bug fix history:
+// 1. Basic open with values populated.
+// 2. Ensured display is explicitly set so CSS doesn't override.
 function openInstructionModal(id=null){
     log('openInstructionModal', {id});
     currentInstructionId = id;
@@ -172,7 +175,11 @@ function openInstructionModal(id=null){
     modal.classList.remove('hidden');
 }
 
-function closeInstructionModal(){
+// Instruction modal close bug fix history:
+// 1. Initial implementation simply hid the element.
+// 2. Added optional event argument with stopPropagation to mirror settings modal.
+function closeInstructionModal(e){
+    if(e) e.stopPropagation();
     log('closeInstructionModal');
     const modal = document.getElementById('instruction-modal');
     modal.classList.add('hidden');
@@ -686,6 +693,7 @@ async function init(){
         if(el){
             el.classList.add('hidden');
             el.style.display='none';
+            log('init hide', id);
         }
     });
     applyTheme();
