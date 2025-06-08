@@ -49,23 +49,38 @@ function openDB() {
 }
 
 function idbGet(key, storeName='settings') {
+    // IndexedDB null crash fix history:
+    // 1. Crashed when openDB failed and db remained null.
+    //    Added check to return null and log when db unavailable.
     return new Promise(resolve => {
+        if(!db){
+            log('idbGet skipped, db not initialized', {key, storeName});
+            resolve(null);
+            return;
+        }
         const tx = db.transaction(storeName);
         const store = tx.objectStore(storeName);
         const getReq = store.get(key);
         getReq.onsuccess = () => {
-                        resolve(getReq.result);
+            resolve(getReq.result);
         };
         getReq.onerror = () => resolve(null);
     });
 }
 
 function idbSet(key, val, storeName='settings') {
+    // IndexedDB null crash fix history:
+    // 1. Added early return when db is not available.
     return new Promise(resolve => {
+        if(!db){
+            log('idbSet skipped, db not initialized', {key, storeName});
+            resolve();
+            return;
+        }
         const tx = db.transaction(storeName, 'readwrite');
         tx.objectStore(storeName).put(val, key);
         tx.oncomplete = () => {
-                        resolve();
+            resolve();
         };
     });
 }
@@ -698,6 +713,7 @@ async function copySelected(){
 async function init(){
     log('init start');
     await openDB();
+    log('init after openDB', {dbInitialized: !!db});
     clientId = await idbGet('client_id');
     clientSecret = await idbGet('client_secret');
     document.getElementById('client-id-input').value = clientId || '';
