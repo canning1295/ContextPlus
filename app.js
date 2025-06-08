@@ -1,7 +1,8 @@
 const REDIRECT_URI = 'https://contextplus.netlify.app/';
 const EXCHANGE_URL = window.EXCHANGE_URL || '/.netlify/functions/exchange';
-// Simple flag so we can enable/disable verbose logging in one place
-const DEBUG = true;
+
+// Utility logger so startup flow can be debugged easily
+const log = (...args) => console.log('[ContextPlus]', ...args);
 
 let clientId = null;
 let clientSecret = null;
@@ -37,8 +38,7 @@ function idbGet(key, storeName='settings') {
         const store = tx.objectStore(storeName);
         const getReq = store.get(key);
         getReq.onsuccess = () => {
-            if(DEBUG) console.log('idbGet', key, getReq.result);
-            resolve(getReq.result);
+                        resolve(getReq.result);
         };
         getReq.onerror = () => resolve(null);
     });
@@ -49,8 +49,7 @@ function idbSet(key, val, storeName='settings') {
         const tx = db.transaction(storeName, 'readwrite');
         tx.objectStore(storeName).put(val, key);
         tx.oncomplete = () => {
-            if(DEBUG) console.log('idbSet', key, val);
-            resolve();
+                        resolve();
         };
     });
 }
@@ -86,7 +85,7 @@ function updateRepoLabels() {
 // 2. Added stopPropagation when closing to prevent immediate reopen.
 // 3. Current fix ensures inline styles don't interfere with display.
 function openSettings() {
-    if(DEBUG) console.log('openSettings called', {accessToken, clientId, clientSecret});
+    log('openSettings', {accessToken, clientId, clientSecret});
     const modal = document.getElementById('settings-modal');
     // ensure display resets in case inline styles were added while debugging
     modal.style.display = 'flex';
@@ -106,6 +105,7 @@ function openSettings() {
 function closeSettings(e) {
     // stopPropagation ensures the modal doesn't immediately reopen
     if(e) e.stopPropagation();
+    log('closeSettings');
     const modal = document.getElementById('settings-modal');
     modal.classList.add('hidden');
     // explicitly hide in case class removal fails
@@ -155,6 +155,7 @@ function renderInstructions(){
 }
 
 function openInstructionModal(id=null){
+    log('openInstructionModal', {id});
     currentInstructionId = id;
     const modal = document.getElementById('instruction-modal');
     const titleEl = document.getElementById('instruction-title');
@@ -172,6 +173,7 @@ function openInstructionModal(id=null){
 }
 
 function closeInstructionModal(){
+    log('closeInstructionModal');
     const modal = document.getElementById('instruction-modal');
     modal.classList.add('hidden');
     modal.style.display='none';
@@ -202,7 +204,7 @@ function deleteInstruction(){
 }
 
 function handleAuthBtn() {
-    console.log('auth-btn clicked');
+    log('handleAuthBtn', {hasToken: !!accessToken});
     if(accessToken) {
         localStorage.removeItem('gh_token');
         accessToken = null;
@@ -228,8 +230,7 @@ function startOAuth() {
     const state = btoa(Math.random().toString(36).substring(2));
     localStorage.setItem('oauth_state', state);
     const authURL = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=repo&state=${state}`;
-    if(DEBUG) console.log('Opening OAuth URL', authURL);
-    window.open(authURL, '_blank');
+    window.open(authURL, "_blank");
 }
 
 function handleRedirect() {
@@ -239,32 +240,30 @@ function handleRedirect() {
     if(code) {
         const expected = localStorage.getItem('oauth_state');
         if(returnedState !== expected) {
-            console.error('State mismatch');
+            log('oauth_state mismatch', {expected, returnedState});
             return;
         }
-        if(DEBUG) console.log('Exchanging OAuth code for token', {code});
+        log('handleRedirect exchanging code');
         fetch(EXCHANGE_URL, {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({code, client_id: clientId, client_secret: clientSecret})
-        }).then(async r=>{
-            if(DEBUG) console.log('Token exchange response status', r.status);
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({code, client_id: clientId, client_secret: clientSecret})
+        }).then(async r => {
             const data = await r.json();
-            if(DEBUG) console.log('Token exchange response body', data);
             accessToken = data.access_token;
             if(accessToken) {
                 localStorage.setItem('gh_token', accessToken);
                 showToast('Connected', 'success', 2, 40, 200, 'upper middle');
                 window.history.replaceState({}, document.title, window.location.pathname);
             }
-        }).catch(err=>console.error('token exchange failed', err));
+        }).catch(err => log('token exchange failed', err));
     }
 }
 
 function openRepoModal() {
+    log('openRepoModal', {hasToken: !!accessToken});
     if(!accessToken) {
-        if(DEBUG) console.warn('openRepoModal called without access token');
-        showToast('Connect GitHub first', 'warning', 2);
+                showToast('Connect GitHub first', 'warning', 2);
         return;
     }
     const overlay = document.getElementById('modal-overlay');
@@ -274,21 +273,19 @@ function openRepoModal() {
 }
 
 function closeRepoModal() {
+    log('closeRepoModal');
     const overlay = document.getElementById('modal-overlay');
     overlay.classList.add('hidden');
     overlay.style.display = 'none';
 }
 
 function loadRepos() {
-    if(DEBUG) console.log('Fetching repositories');
-    fetch('https://api.github.com/user/repos?per_page=100', {
+        fetch('https://api.github.com/user/repos?per_page=100', {
         headers:{Authorization:`token ${accessToken}`, Accept:'application/vnd.github+json'}
     })
     .then(async r=>{
-        if(DEBUG) console.log('Repos response status', r.status);
-        const repos = await r.json();
-        if(DEBUG) console.log('Repos payload', repos);
-        return repos;
+                const repos = await r.json();
+                return repos;
     })
     .then(repos=>{
         const select = document.getElementById('repo-select');
@@ -307,15 +304,12 @@ function loadRepos() {
 function loadBranches() {
     const repoFull = document.getElementById('repo-select').value;
     const [owner, repo]=repoFull.split('/');
-    if(DEBUG) console.log('Fetching branches for', repoFull);
-    fetch(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=100`, {
+        fetch(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=100`, {
         headers:{Authorization:`token ${accessToken}`, Accept:'application/vnd.github+json'}
     })
     .then(async r=>{
-        if(DEBUG) console.log('Branches response status', r.status);
-        const branches = await r.json();
-        if(DEBUG) console.log('Branches payload', branches);
-        return branches;
+                const branches = await r.json();
+                return branches;
     })
     .then(branches=>{
         branchesData = branches || [];
@@ -336,6 +330,7 @@ function loadBranches() {
 }
 
 function confirmRepoBranch() {
+    log('confirmRepoBranch');
     const repoFull = document.getElementById('repo-select').value;
     const branch = document.getElementById('branch-select').value;
     const [owner, repo]=repoFull.split('/');
@@ -345,26 +340,22 @@ function confirmRepoBranch() {
     currentBranchSha = bObj ? bObj.commit.sha : null;
     localStorage.setItem('current_repo', JSON.stringify(currentRepo));
     localStorage.setItem('current_branch', currentBranch);
-    if(DEBUG) console.log('Selected repo/branch', currentRepo, currentBranch);
-    updateRepoLabels();
+        updateRepoLabels();
     loadFileTree();
     closeRepoModal();
 }
 
 function loadFileTree() {
+    log('loadFileTree', {repo: currentRepo, branch: currentBranch, hasToken: !!accessToken});
     if(!currentRepo || !currentBranch || !accessToken) {
-        if(DEBUG) console.warn('loadFileTree called without repo/branch/token');
         return;
     }
     const ref = currentBranchSha || currentBranch;
     const url=`https://api.github.com/repos/${currentRepo.owner}/${currentRepo.repo}/git/trees/${ref}?recursive=1`;
-    if(DEBUG) console.log('Fetching file tree', url);
-    fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'}})
+        fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'}})
     .then(async r=>{
-        if(DEBUG) console.log('Tree response status', r.status);
-        const data = await r.json();
-        if(DEBUG) console.log('Tree payload', data);
-        return data;
+                const data = await r.json();
+                return data;
     }).then(data=>{
         buildTree(data.tree);
         buildDescTree(data.tree);
@@ -682,12 +673,21 @@ async function copySelected(){
 }
 
 async function init(){
+    log('init start');
     await openDB();
     clientId = await idbGet('client_id');
     clientSecret = await idbGet('client_secret');
     document.getElementById('client-id-input').value = clientId || '';
     document.getElementById('client-secret-input').value = clientSecret || '';
-    if(DEBUG) console.log('Init state',{accessToken,clientId,clientSecret,currentRepo,currentBranch});
+    log('init retrieved creds', {accessToken, clientId, clientSecret});
+    // ensure modals start hidden
+    ['settings-modal','modal-overlay','instruction-modal'].forEach(id=>{
+        const el=document.getElementById(id);
+        if(el){
+            el.classList.add('hidden');
+            el.style.display='none';
+        }
+    });
     applyTheme();
     updateRepoLabels();
     handleRedirect();
@@ -698,7 +698,7 @@ async function init(){
         }
     }
     if(!accessToken && (!clientId || !clientSecret)){
-        if(DEBUG) console.log('Opening settings because', {accessToken, clientId, clientSecret});
+        log('init opening settings due to missing creds');
         openSettings();
     }
     if(!accessToken){
