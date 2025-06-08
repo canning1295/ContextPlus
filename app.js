@@ -315,12 +315,26 @@ function createList(obj,parent){
 }
 
 function handleFolderToggle(e){
+    console.log('handleFolderToggle triggered', {
+        target: e.target,
+        isFolder: !!e.target.dataset.folder,
+        checked: e.target.checked,
+        path: e.target.dataset.path
+    });
+    
     if(e.target.dataset.folder){
         const li = e.target.closest('li');
+        console.log('Found parent li:', li);
+        
         if(li){
             // Select/deselect all checkboxes within this folder
             const boxes = li.querySelectorAll('ul input[type=checkbox]');
-            boxes.forEach(cb=>{ cb.checked = e.target.checked; });
+            console.log('Found child checkboxes:', boxes.length, boxes);
+            
+            boxes.forEach((cb, index) => { 
+                console.log(`Setting checkbox ${index} (${cb.dataset.path}) to ${e.target.checked}`);
+                cb.checked = e.target.checked; 
+            });
         }
     }
     // Update parent folder states based on children
@@ -328,6 +342,8 @@ function handleFolderToggle(e){
 }
 
 function updateParentFolderStates(checkbox) {
+    console.log('updateParentFolderStates called for:', checkbox.dataset.path);
+    
     let currentLi = checkbox.closest('li');
     
     // Traverse up the tree to update parent folder states
@@ -335,23 +351,32 @@ function updateParentFolderStates(checkbox) {
         const parentUl = currentLi.parentElement;
         const parentLi = parentUl ? parentUl.closest('li') : null;
         
+        console.log('Checking parent:', parentLi);
+        
         if(parentLi) {
             const parentCheckbox = parentLi.querySelector('input[type=checkbox][data-folder="true"]');
+            console.log('Parent checkbox found:', parentCheckbox);
+            
             if(parentCheckbox) {
                 // Get all child checkboxes in this parent folder
                 const childCheckboxes = parentLi.querySelectorAll('ul input[type=checkbox]');
                 const checkedChildren = parentLi.querySelectorAll('ul input[type=checkbox]:checked');
                 
+                console.log(`Parent ${parentCheckbox.dataset.path}: ${checkedChildren.length}/${childCheckboxes.length} children checked`);
+                
                 // Update parent state based on children
                 if(checkedChildren.length === 0) {
                     parentCheckbox.checked = false;
                     parentCheckbox.indeterminate = false;
+                    console.log('Set parent to unchecked');
                 } else if(checkedChildren.length === childCheckboxes.length) {
                     parentCheckbox.checked = true;
                     parentCheckbox.indeterminate = false;
+                    console.log('Set parent to checked');
                 } else {
                     parentCheckbox.checked = false;
                     parentCheckbox.indeterminate = true;
+                    console.log('Set parent to indeterminate');
                 }
             }
         }
