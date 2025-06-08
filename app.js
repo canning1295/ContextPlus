@@ -157,6 +157,12 @@ let instructionsData = [];
 let currentInstructionId = null;
 
 function loadInstructions(){
+    if(!db){
+        log('loadInstructions skipped, db not initialized');
+        instructionsData = [];
+        renderInstructions();
+        return;
+    }
     const tx = db.transaction('instructions');
     const store = tx.objectStore('instructions');
     const req = store.getAll();
@@ -222,6 +228,11 @@ function saveInstruction(){
     const title=document.getElementById('instruction-title').value.trim();
     const text=document.getElementById('instruction-text').value.trim();
     if(!title) { showToast('Title required','warning'); return; }
+    if(!db){
+        log('saveInstruction skipped, db not initialized');
+        showToast('Database unavailable','error');
+        return;
+    }
     const store = db.transaction('instructions','readwrite').objectStore('instructions');
     if(currentInstructionId){
         store.put({id:currentInstructionId,title,text});
@@ -233,6 +244,12 @@ function saveInstruction(){
 
 function deleteInstruction(){
     if(currentInstructionId){
+        if(!db){
+            log('deleteInstruction skipped, db not initialized');
+            showToast('Database unavailable','error');
+            closeInstructionModal();
+            return;
+        }
         const store = db.transaction('instructions','readwrite').objectStore('instructions');
         store.delete(currentInstructionId);
         store.transaction.oncomplete=()=>{ loadInstructions(); closeInstructionModal(); };
@@ -473,6 +490,11 @@ function createDescList(obj,parent){
 
 function loadDescriptionStatus(path){
     return new Promise(resolve=>{
+        if(!db){
+            log('loadDescriptionStatus skipped, db not initialized');
+            resolve('❌');
+            return;
+        }
         const key=[currentRepo?currentRepo.full_name:'', path];
         const tx=db.transaction('descriptions');
         const store=tx.objectStore('descriptions');
