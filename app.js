@@ -318,9 +318,45 @@ function handleFolderToggle(e){
     if(e.target.dataset.folder){
         const li = e.target.closest('li');
         if(li){
+            // Select/deselect all checkboxes within this folder
             const boxes = li.querySelectorAll('ul input[type=checkbox]');
             boxes.forEach(cb=>{ cb.checked = e.target.checked; });
         }
+    }
+    // Update parent folder states based on children
+    updateParentFolderStates(e.target);
+}
+
+function updateParentFolderStates(checkbox) {
+    let currentLi = checkbox.closest('li');
+    
+    // Traverse up the tree to update parent folder states
+    while(currentLi) {
+        const parentUl = currentLi.parentElement;
+        const parentLi = parentUl ? parentUl.closest('li') : null;
+        
+        if(parentLi) {
+            const parentCheckbox = parentLi.querySelector('input[type=checkbox][data-folder="true"]');
+            if(parentCheckbox) {
+                // Get all child checkboxes in this parent folder
+                const childCheckboxes = parentLi.querySelectorAll('ul input[type=checkbox]');
+                const checkedChildren = parentLi.querySelectorAll('ul input[type=checkbox]:checked');
+                
+                // Update parent state based on children
+                if(checkedChildren.length === 0) {
+                    parentCheckbox.checked = false;
+                    parentCheckbox.indeterminate = false;
+                } else if(checkedChildren.length === childCheckboxes.length) {
+                    parentCheckbox.checked = true;
+                    parentCheckbox.indeterminate = false;
+                } else {
+                    parentCheckbox.checked = false;
+                    parentCheckbox.indeterminate = true;
+                }
+            }
+        }
+        
+        currentLi = parentLi;
     }
 }
 
