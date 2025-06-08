@@ -7,6 +7,9 @@ let clientId = null;
 let clientSecret = null;
 let db = null;
 
+let branchesData = [];
+let currentBranchSha = null;
+
 let accessToken = localStorage.getItem('gh_token') || null;
 let currentRepo = JSON.parse(localStorage.getItem('current_repo') || 'null');
 let currentBranch = localStorage.getItem('current_branch');
@@ -325,15 +328,20 @@ function loadBranches() {
         return branches;
     })
     .then(branches=>{
+        branchesData = branches || [];
         const select = document.getElementById('branch-select');
         select.innerHTML='';
-        branches.forEach(b=>{
+        branchesData.forEach(b=>{
             const opt=document.createElement('option');
             opt.value=b.name;
             opt.textContent=b.name;
             select.appendChild(opt);
         });
-        if(currentBranch) select.value=currentBranch;
+        if(currentBranch){
+            select.value=currentBranch;
+            const bObj = branchesData.find(b=>b.name===currentBranch);
+            currentBranchSha = bObj ? bObj.commit.sha : null;
+        }
     });
 }
 
@@ -343,6 +351,8 @@ function confirmRepoBranch() {
     const [owner, repo]=repoFull.split('/');
     currentRepo={full_name:repoFull, owner, repo};
     currentBranch=branch;
+    const bObj = branchesData.find(b=>b.name===branch);
+    currentBranchSha = bObj ? bObj.commit.sha : null;
     localStorage.setItem('current_repo', JSON.stringify(currentRepo));
     localStorage.setItem('current_branch', currentBranch);
     if(DEBUG) console.log('Selected repo/branch', currentRepo, currentBranch);
@@ -356,7 +366,8 @@ function loadFileTree() {
         if(DEBUG) console.warn('loadFileTree called without repo/branch/token');
         return;
     }
-    const url=`https://api.github.com/repos/${currentRepo.owner}/${currentRepo.repo}/git/trees/${currentBranch}?recursive=1`;
+    const ref = currentBranchSha || currentBranch;
+    const url=`https://api.github.com/repos/${currentRepo.owner}/${currentRepo.repo}/git/trees/${ref}?recursive=1`;
     if(DEBUG) console.log('Fetching file tree', url);
     fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'}})
     .then(async r=>{
