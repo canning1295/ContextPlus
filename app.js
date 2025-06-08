@@ -18,17 +18,28 @@ let theme = localStorage.getItem('theme') || 'light';
 
 function openDB() {
     return new Promise(resolve => {
-        const req = indexedDB.open('contextplus', 2);
-        req.onupgradeneeded = e => {
-            const db = e.target.result;
-            if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
-            if(!db.objectStoreNames.contains('instructions')) db.createObjectStore('instructions', { keyPath: 'id', autoIncrement: true });
-            if(!db.objectStoreNames.contains('descriptions')) db.createObjectStore('descriptions', { keyPath: ['repo','path'] });
-        };
-        req.onsuccess = e => {
-            db = e.target.result;
+        log('openDB start');
+        try {
+            const req = indexedDB.open('contextplus', 2);
+            req.onupgradeneeded = e => {
+                const db = e.target.result;
+                if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
+                if(!db.objectStoreNames.contains('instructions')) db.createObjectStore('instructions', { keyPath: 'id', autoIncrement: true });
+                if(!db.objectStoreNames.contains('descriptions')) db.createObjectStore('descriptions', { keyPath: ['repo','path'] });
+            };
+            req.onsuccess = e => {
+                db = e.target.result;
+                log('openDB success');
+                resolve();
+            };
+            req.onerror = e => {
+                log('openDB error', e); // continue without IndexedDB
+                resolve();
+            };
+        } catch(err) {
+            log('openDB exception', err);
             resolve();
-        };
+        }
     });
 }
 
@@ -736,6 +747,7 @@ async function init(){
     document.getElementById('instruction-modal').addEventListener('click', closeInstructionModal);
     document.getElementById('instruction-content').addEventListener('click', e=>e.stopPropagation());
     loadInstructions();
+    log('init listeners attached');
 }
 
 init();
