@@ -31,6 +31,14 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .modal-buttons { display:flex; justify-content:space-between; }
 #file-tree ul { list-style: none; padding-left: 20px; }
 #modal-overlay, #settings-modal { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
+
+/* Hide modals by default when the hidden class is present
+   (ID selectors otherwise override display:none) */
+#modal-overlay.hidden,
+#settings-modal.hidden,
+#instruction-modal.hidden {
+  display:none;
+}
 .hidden { display:none; }
 #modal, #settings-content { background: var(--modal-bg); padding: 20px; display:flex; flex-direction:column; gap:15px; }
 .big-btn { font-size: 1.1em; padding: 10px 16px; border-radius:6px; }
