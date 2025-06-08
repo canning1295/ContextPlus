@@ -302,14 +302,24 @@ function createList(obj,parent){
         const checkbox=document.createElement('input');
         checkbox.type='checkbox';
         
-        // Fix: Build the full path for folders correctly
-        const isFolder = !obj[key]._item;
+        // Debug the folder detection
+        const hasItem = !!obj[key]._item;
+        const hasChildren = Object.keys(obj[key]).some(k=>k!=='_item');
+        const isFolder = hasChildren; // Change this logic
+        
+        console.log(`Creating item: ${key}`, {
+            hasItem,
+            hasChildren,
+            isFolder,
+            keys: Object.keys(obj[key])
+        });
+        
         if(isFolder) {
             checkbox.dataset.folder='true';
             // For folders, we need to construct the path properly
-            // Get the parent's path and append this folder name
             const parentPath = getParentPath(parent);
             checkbox.dataset.path = parentPath ? `${parentPath}/${key}` : key;
+            console.log(`Set folder data for: ${key}, path: ${checkbox.dataset.path}`);
         } else {
             // For files, use the actual item path
             checkbox.dataset.path = obj[key]._item.path;
@@ -319,7 +329,7 @@ function createList(obj,parent){
         li.appendChild(document.createTextNode(' '+key));
         parent.appendChild(li);
         
-        if(Object.keys(obj[key]).some(k=>k!=='_item')){
+        if(hasChildren){
             const ul=document.createElement('ul');
             createList(obj[key],ul);
             li.appendChild(ul);
