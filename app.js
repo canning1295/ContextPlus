@@ -301,17 +301,38 @@ function createList(obj,parent){
         const li=document.createElement('li');
         const checkbox=document.createElement('input');
         checkbox.type='checkbox';
-        checkbox.dataset.path=obj[key]._item?obj[key]._item.path:key;
-        if(!obj[key]._item) checkbox.dataset.folder='true';
+        
+        // Fix: Build the full path for folders correctly
+        const isFolder = !obj[key]._item;
+        if(isFolder) {
+            checkbox.dataset.folder='true';
+            // For folders, we need to construct the path properly
+            // Get the parent's path and append this folder name
+            const parentPath = getParentPath(parent);
+            checkbox.dataset.path = parentPath ? `${parentPath}/${key}` : key;
+        } else {
+            // For files, use the actual item path
+            checkbox.dataset.path = obj[key]._item.path;
+        }
+        
         li.appendChild(checkbox);
         li.appendChild(document.createTextNode(' '+key));
         parent.appendChild(li);
+        
         if(Object.keys(obj[key]).some(k=>k!=='_item')){
             const ul=document.createElement('ul');
             createList(obj[key],ul);
             li.appendChild(ul);
         }
     });
+}
+
+// Helper function to get the parent path
+function getParentPath(ul) {
+    const parentLi = ul.closest('li');
+    if(!parentLi) return '';
+    const parentCheckbox = parentLi.querySelector('input[type=checkbox]');
+    return parentCheckbox ? parentCheckbox.dataset.path : '';
 }
 
 function handleFolderToggle(e){
