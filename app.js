@@ -144,6 +144,8 @@ function renderInstructions(){
         toggle.addEventListener('change', updateOutputCards);
         const span = document.createElement('span');
         span.textContent = instr.title;
+        span.className = 'instruction-title';
+        span.addEventListener('click', () => openInstructionModal(instr.id));
         div.appendChild(toggle);
         div.appendChild(span);
         list.appendChild(div);
@@ -185,14 +187,22 @@ function saveInstruction(){
     } else {
         store.add({title,text});
     }
-    store.transaction.oncomplete=()=>{ loadInstructions(); closeInstructionModal(); };
+    store.transaction.oncomplete=()=>{ 
+        loadInstructions(); 
+        closeInstructionModal(); 
+        showToast('Instruction saved','success',2,40,200,'upper middle');
+    };
 }
 
 function deleteInstruction(){
     if(currentInstructionId){
         const store = db.transaction('instructions','readwrite').objectStore('instructions');
         store.delete(currentInstructionId);
-        store.transaction.oncomplete=()=>{ loadInstructions(); closeInstructionModal(); };
+        store.transaction.oncomplete=()=>{ 
+            loadInstructions(); 
+            closeInstructionModal(); 
+            showToast('Instruction deleted','warning',2,40,200,'upper middle');
+        };
     } else {
         closeInstructionModal();
     }
