@@ -4,7 +4,10 @@ A simple client-side web app to browse and copy files from your GitHub repositor
 
 ## Deploying on Netlify
 
-Simply deploy this repository. Netlify runs `generate-config.js` which writes `config.js` and exposes a serverless function at `/.netlify/functions/exchange`.
+Simply deploy this repository. Netlify runs `generate-config.js` which writes `config.js` and exposes serverless functions:
+`/.netlify/functions/exchange` for GitHub OAuth and `/.netlify/functions/llm-proxy` for LLM API calls.
+
+**Note:** Browsers cannot call most LLM APIs directly because they lack the required CORS headers. The included `llm-proxy` function forwards requests to your provider and avoids these CORS issues. No keys are stored on the server – the proxy just relays your request.
 
 ## Usage
 
