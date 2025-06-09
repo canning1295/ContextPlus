@@ -794,6 +794,8 @@ async function init(){
     document.getElementById('instruction-content').addEventListener('click', e=>e.stopPropagation());
     loadInstructions();
     log('init listeners attached');
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) overlay.style.display = 'none';
 }
 
 init();
