@@ -224,6 +224,7 @@ function saveLLMSettings(){
     idbSet('llm_api_key', llmApiKey);
     idbSet('llm_async', llmAsync);
     showToast('LLM settings saved','success',2,40,200,'upper middle');
+    closeSettings();
 }
 
 let instructionsData = [];
@@ -325,6 +326,7 @@ async function saveInstruction(){
         }
         localStorage.setItem('instructions', JSON.stringify(instructionsData));
         loadInstructions();
+        showToast('Instruction saved','success',2,40,200,'upper middle');
         closeInstructionModal();
         return;
     }
@@ -334,7 +336,11 @@ async function saveInstruction(){
     } else {
         store.add({title,text});
     }
-    store.transaction.oncomplete=()=>{ loadInstructions(); closeInstructionModal(); };
+    store.transaction.oncomplete=()=>{ 
+        loadInstructions();
+        showToast('Instruction saved','success',2,40,200,'upper middle');
+        closeInstructionModal(); 
+    };
 }
 
 function deleteInstruction(){
@@ -659,6 +665,7 @@ function saveDescription(){
         log('saveDescription localStorage fallback');
         idbSet([currentRepo.full_name,currentBranch,currentDescPath], rec, 'descriptions').then(()=>{
             updateDescStatus(currentDescPath);
+            showToast('Description saved','success',2,40,200,'upper middle');
             closeDescriptionModal();
         });
         return;
@@ -667,6 +674,7 @@ function saveDescription(){
     store.put(rec);
     store.transaction.oncomplete=()=>{
         updateDescStatus(currentDescPath);
+        showToast('Description saved','success',2,40,200,'upper middle');
         closeDescriptionModal();
     };
 }
