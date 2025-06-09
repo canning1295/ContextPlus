@@ -99,9 +99,12 @@
                     <select id="llm-provider-select">
                         <option value="openai">OpenAI</option>
                         <option value="anthropic">Anthropic</option>
+                        <option value="google">Google</option>
                     </select>
                     <label for="llm-api-key">API Key:</label>
                     <input id="llm-api-key" type="password">
+                    <label for="llm-model-select">Model:</label>
+                    <select id="llm-model-select"></select>
                     <label><input type="checkbox" id="llm-async"> Send requests asynchronously</label>
                     <button id="llm-save-btn" class="small-btn">Save</button>
                 </div>

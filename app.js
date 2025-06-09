@@ -17,6 +17,7 @@ let currentBranch = localStorage.getItem('current_branch');
 let theme = localStorage.getItem('theme') || 'light';
 let llmProvider = null;
 let llmApiKey = null;
+let llmModel = null;
 let llmAsync = false;
 let repoTree = [];
 
@@ -146,6 +147,8 @@ function openSettings() {
     document.getElementById('theme-select').value = theme;
     document.getElementById('llm-provider-select').value = llmProvider || 'openai';
     document.getElementById('llm-api-key').value = llmApiKey || '';
+    document.getElementById('llm-model-select').value = llmModel || '';
+    updateModelList();
     document.getElementById('llm-async').checked = !!llmAsync;
 }
 
@@ -175,9 +178,44 @@ function openGitHubSettings(){
     window.open('https://github.com/settings/applications/new', '_blank');
 }
 
+async function updateModelList(){
+    const provider = document.getElementById('llm-provider-select').value;
+    const key = document.getElementById('llm-api-key').value.trim();
+    const sel = document.getElementById('llm-model-select');
+    if(!key){
+        sel.innerHTML = '<option value="">Enter API key</option>';
+        return;
+    }
+    sel.innerHTML = '<option>Loading...</option>';
+    try{
+        let models = [];
+        if(provider === 'openai'){
+            const r = await fetch('https://api.openai.com/v1/models',{headers:{Authorization:`Bearer ${key}`}});
+            const d = await r.json();
+            models = (d.data||[]).map(m=>m.id).filter(id=>/^gpt|^text-/.test(id));
+        }else if(provider === 'anthropic'){
+            const r = await fetch('https://api.anthropic.com/v1/models',{headers:{'x-api-key':key,'anthropic-version':'2023-06-01'}});
+            const d = await r.json();
+            models = (d.models||d.data||[]).map(m=>m.id||m.name);
+        }else if(provider === 'google'){
+            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+            const d = await r.json();
+            models = (d.models||[]).map(m=>m.name.replace(/^models\//,''));
+        }
+        sel.innerHTML = '';
+        models.forEach(m=>{ const o=document.createElement('option'); o.value=m; o.textContent=m; sel.appendChild(o); });
+        if(llmModel && models.includes(llmModel)) sel.value=llmModel;
+    }catch(err){
+        console.error('updateModelList',err);
+        sel.innerHTML = '<option value="">Error loading models</option>';
+    }
+}
+
 function saveLLMSettings(){
     llmProvider = document.getElementById('llm-provider-select').value;
     llmApiKey = document.getElementById('llm-api-key').value.trim();
+    llmModel = document.getElementById('llm-model-select').value;
+    idbSet('llm_model', llmModel);
     llmAsync = document.getElementById('llm-async').checked;
     idbSet('llm_provider', llmProvider);
     idbSet('llm_api_key', llmApiKey);
@@ -633,6 +671,25 @@ function saveDescription(){
 function updateDescStatus(path){
     const span=document.querySelector(`.desc-status[data-path="${path}"]`);
     if(span) loadDescriptionStatus(path).then(stat=>{span.textContent=stat;});
+
+async function callLLM(prompt){
+    if(llmProvider === 'openai'){
+        const body = {model: llmModel || 'gpt-3.5-turbo',messages:[{role:'system',content:'You generate detailed descriptions of project files.'},{role:'user',content:prompt}]};
+        const res = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${llmApiKey}`},body:JSON.stringify(body)});
+        const data = await res.json();
+        return (data.choices && data.choices[0].message.content) || '';
+    } else if(llmProvider === 'anthropic'){
+        const body = {model: llmModel || 'claude-3-haiku-20240307',messages:[{role:'user',content:prompt}],max_tokens:1024};
+        const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':llmApiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify(body)});
+        const data = await res.json();
+        return (data.content && data.content[0] && data.content[0].text) || '';
+    } else if(llmProvider === 'google'){
+        const body = {contents:[{role:'user',parts:[{text:prompt}]}]};
+        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${llmModel || 'gemini-pro'}:generateContent?key=${llmApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const data = await res.json();
+        return (data.candidates && data.candidates[0] && data.candidates[0].content.parts[0].text) || '';
+    }
+    return '';
 }
 
 async function generateDescriptions(){
@@ -654,12 +711,9 @@ async function generateDescriptions(){
         const fileUrl=`https://api.github.com/repos/${currentRepo.full_name}/contents/${f.path}?ref=${currentBranch}`;
         const resp=await fetch(fileUrl,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
         const content=await resp.text();
-        statusEl.textContent=`Describing ${f.path}`;
-        const body={model:'gpt-3.5-turbo',messages:[{role:'system',content:'You generate detailed descriptions of project files.'},{role:'user',content:`Describe the purpose and contents of this file for developers:\n\n${content}`}]};
-        const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${llmApiKey}`},body:JSON.stringify(body)});
-        const data=await res.json();
-        const text=(data.choices&&data.choices[0].message.content)||'';
-        const rec={repo:currentRepo.full_name,branch:currentBranch,path:f.path,text};
+        const prompt = `Describe the purpose and contents of this file for developers:\n\n${content}`;
+        const text = await callLLM(prompt);
+        const rec = {repo:currentRepo.full_name,branch:currentBranch,path:f.path,text};
         await idbSet([rec.repo,rec.branch,rec.path],rec,'descriptions');
         updateDescStatus(f.path);
     };
@@ -908,11 +962,14 @@ async function init(){
     llmProvider = await idbGet('llm_provider');
     llmApiKey = await idbGet('llm_api_key');
     llmAsync = await idbGet('llm_async');
+    llmModel = await idbGet('llm_model');
     document.getElementById('client-id-input').value = clientId || '';
     document.getElementById('client-secret-input').value = clientSecret || '';
     document.getElementById('llm-provider-select').value = llmProvider || 'openai';
     document.getElementById('llm-api-key').value = llmApiKey || '';
     document.getElementById('llm-async').checked = !!llmAsync;
+    document.getElementById('llm-model-select').value = llmModel || '';
+    updateModelList();
     log('init retrieved creds', {accessToken, clientId, clientSecret});
     // ensure modals start hidden
     ['settings-modal','modal-overlay','instruction-modal','description-modal'].forEach(id=>{
@@ -966,6 +1023,8 @@ async function init(){
     document.getElementById('description-modal').addEventListener('click', e=>{ log('description-modal background click'); closeDescriptionModal(e); });
     document.getElementById('description-content').addEventListener('click', e=>e.stopPropagation());
     document.querySelectorAll('.settings-tab').forEach(btn=>btn.addEventListener('click',()=>showTab(btn.dataset.tab)));
+    document.getElementById('llm-provider-select').addEventListener('change', updateModelList);
+    document.getElementById('llm-api-key').addEventListener('change', updateModelList);
     document.getElementById('llm-save-btn').addEventListener('click', saveLLMSettings);
     document.getElementById('generate-desc-btn').addEventListener('click', generateDescriptions);
     loadInstructions();
