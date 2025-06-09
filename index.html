@@ -42,6 +42,8 @@
         </div>
         <div id="descriptions-col" class="column">
             <h3>File Descriptions</h3>
+            <button id="generate-desc-btn" class="small-btn">Generate Descriptions</button>
+            <div id="generate-status" class="instructions"></div>
             <div id="desc-tree"></div>
         </div>
     </div>
@@ -67,28 +69,51 @@
     <div id="settings-modal" class="hidden">
         <div id="settings-content">
             <h2>Settings</h2>
-            <p id="first-run" class="hidden instructions">
-                1. Create a new OAuth App at GitHub → Settings → Developer settings → OAuth Apps.<br>
-                <button id="open-github" class="small-btn"><img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" class="icon">Open GitHub</button><br>
-                2. Use <code>https://contextplus.netlify.app/</code> for both the Homepage URL and the Authorization callback URL. Leave <em>Enable Device Flow</em> unchecked.<br>
-                3. Paste the generated Client ID and Client Secret below.<br>
-                4. Finally click <strong>Connect GitHub</strong>.
-            </p>
-            <h3>GitHub OAuth Credentials</h3>
-            <div id="auth-section">
-                <p id="auth-status">Not connected</p>
-                <label for="client-id-input">Client ID:</label>
-                <input id="client-id-input" type="text">
-                <label for="client-secret-input">Client Secret:</label>
-                <input id="client-secret-input" type="password">
-                <button id="auth-btn" class="big-btn"><img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" class="icon"> Connect GitHub</button>
+            <div id="settings-tabs">
+                <button class="settings-tab" data-tab="github">GitHub</button>
+                <button class="settings-tab" data-tab="llm">LLM API</button>
+                <button class="settings-tab" data-tab="general">General</button>
             </div>
-            <div id="theme-section">
-                <label for="theme-select">Theme:</label>
-                <select id="theme-select">
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                </select>
+            <div id="settings-panels">
+                <div class="settings-pane" id="tab-github">
+                    <p id="first-run" class="hidden instructions">
+                        1. Create a new OAuth App at GitHub → Settings → Developer settings → OAuth Apps.<br>
+                        <button id="open-github" class="small-btn"><img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" class="icon">Open GitHub</button><br>
+                        2. Use <code>https://contextplus.netlify.app/</code> for both the Homepage URL and the Authorization callback URL. Leave <em>Enable Device Flow</em> unchecked.<br>
+                        3. Paste the generated Client ID and Client Secret below.<br>
+                        4. Finally click <strong>Connect GitHub</strong>.
+                    </p>
+                    <h3>GitHub OAuth Credentials</h3>
+                    <div id="auth-section">
+                        <p id="auth-status">Not connected</p>
+                        <label for="client-id-input">Client ID:</label>
+                        <input id="client-id-input" type="text">
+                        <label for="client-secret-input">Client Secret:</label>
+                        <input id="client-secret-input" type="password">
+                        <button id="auth-btn" class="big-btn"><img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" alt="GitHub" class="icon"> Connect GitHub</button>
+                    </div>
+                </div>
+                <div class="settings-pane" id="tab-llm">
+                    <h3>LLM API</h3>
+                    <label for="llm-provider-select">Provider:</label>
+                    <select id="llm-provider-select">
+                        <option value="openai">OpenAI</option>
+                        <option value="anthropic">Anthropic</option>
+                    </select>
+                    <label for="llm-api-key">API Key:</label>
+                    <input id="llm-api-key" type="password">
+                    <label><input type="checkbox" id="llm-async"> Send requests asynchronously</label>
+                    <button id="llm-save-btn" class="small-btn">Save</button>
+                </div>
+                <div class="settings-pane" id="tab-general">
+                    <div id="theme-section">
+                        <label for="theme-select">Theme:</label>
+                        <select id="theme-select">
+                            <option value="light">Light</option>
+                            <option value="dark">Dark</option>
+                        </select>
+                    </div>
+                </div>
             </div>
             <button id="settings-close">✖ Close</button>
         </div>

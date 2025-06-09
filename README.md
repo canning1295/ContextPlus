@@ -13,4 +13,8 @@ Simply deploy this repository. Netlify runs `generate-config.js` which writes `c
 - Select a repository and branch from the modal in the top-left.
 - Choose files or folders in the tree and press **Copy Selected** to place their contents on the clipboard.
 
+### File Descriptions via LLM
+
+Use **Generate Descriptions** in the File Descriptions column to have an LLM analyze each file and produce detailed summaries. Configure your preferred provider and API key under **Settings → LLM API**. Requests can run asynchronously or sequentially depending on your choice.
+
 Token counts in the toast are approximated by characters/4.7.
