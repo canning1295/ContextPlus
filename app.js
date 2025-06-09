@@ -24,12 +24,13 @@ function openDB() {
         let finished = false;
         const done = () => { if(!finished){ finished = true; resolve(); } };
         try {
-            const req = indexedDB.open('contextplus', 2);
+            const req = indexedDB.open('contextplus', 3);
             req.onupgradeneeded = e => {
                 const db = e.target.result;
                 if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
                 if(!db.objectStoreNames.contains('instructions')) db.createObjectStore('instructions', { keyPath: 'id', autoIncrement: true });
-                if(!db.objectStoreNames.contains('descriptions')) db.createObjectStore('descriptions', { keyPath: ['repo','path'] });
+                if(db.objectStoreNames.contains('descriptions')) db.deleteObjectStore('descriptions');
+                db.createObjectStore('descriptions', { keyPath: ['repo','branch','path'] });
             };
             req.onsuccess = e => {
                 db = e.target.result;
@@ -155,6 +156,7 @@ function openGitHubSettings(){
 
 let instructionsData = [];
 let currentInstructionId = null;
+let currentDescPath = null;
 
 function loadInstructions(){
     if(!db){
@@ -473,11 +475,19 @@ function createDescList(obj,parent){
         checkbox.addEventListener('change', updateOutputCards);
         const statusSpan=document.createElement('span');
         statusSpan.className='desc-status';
+        statusSpan.dataset.path=checkbox.dataset.path;
         loadDescriptionStatus(checkbox.dataset.path).then(stat=>{
             statusSpan.textContent=stat;
         });
+        const nameSpan=document.createElement('span');
+        nameSpan.textContent=' '+key+' ';
+        if(!isFolder){
+            nameSpan.className='desc-file';
+            nameSpan.dataset.path=checkbox.dataset.path;
+            nameSpan.addEventListener('click', openDescriptionModal);
+        }
         li.appendChild(checkbox);
-        li.appendChild(document.createTextNode(' '+key+' '));
+        li.appendChild(nameSpan);
         li.appendChild(statusSpan);
         parent.appendChild(li);
         if(hasChildren){
@@ -495,7 +505,7 @@ function loadDescriptionStatus(path){
             resolve('❌');
             return;
         }
-        const key=[currentRepo?currentRepo.full_name:'', path];
+        const key=[currentRepo?currentRepo.full_name:'', currentBranch || '', path];
         const tx=db.transaction('descriptions');
         const store=tx.objectStore('descriptions');
         const req=store.get(key);
@@ -507,6 +517,55 @@ function loadDescriptionStatus(path){
         };
         req.onerror=()=>resolve('❌');
     });
+}
+
+async function openDescriptionModal(e){
+    e.stopPropagation();
+    currentDescPath = e.target.dataset.path;
+    document.getElementById('description-path').textContent = currentDescPath;
+    document.getElementById('description-text').value = '';
+    document.getElementById('description-skip').checked = false;
+    if(db && currentRepo && currentBranch){
+        const key=[currentRepo.full_name, currentBranch, currentDescPath];
+        const rec=await idbGet(key,'descriptions');
+        if(rec){
+            document.getElementById('description-text').value = rec.text || '';
+            document.getElementById('description-skip').checked = !!rec.na;
+        }
+    }
+    const modal=document.getElementById('description-modal');
+    modal.style.display='flex';
+    modal.classList.remove('hidden');
+}
+
+function closeDescriptionModal(e){
+    if(e) e.stopPropagation();
+    const modal=document.getElementById('description-modal');
+    modal.classList.add('hidden');
+    modal.style.display='none';
+    currentDescPath=null;
+}
+
+function saveDescription(){
+    if(!db || !currentRepo || !currentBranch || !currentDescPath){
+        showToast('Database unavailable','error');
+        closeDescriptionModal();
+        return;
+    }
+    const text=document.getElementById('description-text').value.trim();
+    const na=document.getElementById('description-skip').checked;
+    const store=db.transaction('descriptions','readwrite').objectStore('descriptions');
+    const rec={repo:currentRepo.full_name, branch:currentBranch, path:currentDescPath, text, na};
+    store.put(rec);
+    store.transaction.oncomplete=()=>{
+        updateDescStatus(currentDescPath);
+        closeDescriptionModal();
+    };
+}
+
+function updateDescStatus(path){
+    const span=document.querySelector(`.desc-status[data-path="${path}"]`);
+    if(span) loadDescriptionStatus(path).then(stat=>{span.textContent=stat;});
 }
 
 async function updateOutputCards(){
@@ -720,7 +779,7 @@ async function copySelected(){
         }else if(card.dataset.type==='descriptions'){
             const descChecks=document.querySelectorAll('#desc-tree input[type=checkbox]:checked');
             for(const cb of descChecks){
-                const key=[currentRepo.full_name, cb.dataset.path];
+                const key=[currentRepo.full_name, currentBranch, cb.dataset.path];
                 const rec=await idbGet(key,'descriptions');
                 if(rec && rec.text) parts.push(rec.text);
             }
@@ -742,7 +801,7 @@ async function init(){
     document.getElementById('client-secret-input').value = clientSecret || '';
     log('init retrieved creds', {accessToken, clientId, clientSecret});
     // ensure modals start hidden
-    ['settings-modal','modal-overlay','instruction-modal'].forEach(id=>{
+    ['settings-modal','modal-overlay','instruction-modal','description-modal'].forEach(id=>{
         const el=document.getElementById(id);
         if(el){
             el.classList.add('hidden');
@@ -789,6 +848,10 @@ async function init(){
     document.getElementById('instruction-delete').addEventListener('click', deleteInstruction);
     document.getElementById('instruction-modal').addEventListener('click', (e) => { log('instruction-modal background click'); closeInstructionModal(e); });
     document.getElementById('instruction-content').addEventListener('click', e=>e.stopPropagation());
+    document.getElementById('description-close').addEventListener('click', e=>{ log('description-close click'); closeDescriptionModal(e); });
+    document.getElementById('description-save').addEventListener('click', saveDescription);
+    document.getElementById('description-modal').addEventListener('click', e=>{ log('description-modal background click'); closeDescriptionModal(e); });
+    document.getElementById('description-content').addEventListener('click', e=>e.stopPropagation());
     loadInstructions();
     log('init listeners attached');
 }
