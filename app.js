@@ -518,7 +518,7 @@ function loadFileTree() {
         repoTree = data.tree || [];
         buildTree(repoTree);
         buildDescTree(repoTree);
-        updateOutputCards();
+        applySavedSelections();
     });
 }
 
@@ -829,8 +829,17 @@ async function updateOutputCards(){
         cards.push(card);
     }
     cards.forEach(c=>container.appendChild(c));
+    const dragHint=document.getElementById('drag-hint');
+    if(cards.length>1){
+        container.classList.add('multi-card');
+        if(dragHint) dragHint.style.display='block';
+    }else{
+        container.classList.remove('multi-card');
+        if(dragHint) dragHint.style.display='none';
+    }
     initDrag(container);
     updateTotalTokens();
+    saveSelections();
 }
 
 function initDrag(container){
@@ -858,6 +867,32 @@ function updateTotalTokens(){
     let total=0;
     container.querySelectorAll('.card').forEach(c=>{total+=Number(c.dataset.tokens)||0;});
     document.getElementById('total-tokens').textContent=`(${total} tokens)`;
+}
+
+async function saveSelections(){
+    if(!currentRepo || !currentBranch) return;
+    const files=getSelectedPaths();
+    const instructions=Array.from(document.querySelectorAll('.instruction-toggle:checked')).map(cb=>Number(cb.dataset.id));
+    const desc=Array.from(document.querySelectorAll('#desc-tree input[type=checkbox]:checked')).map(cb=>cb.dataset.path);
+    const key=`selections:${currentRepo.full_name}:${currentBranch}`;
+    const data={files,instructions,desc};
+    log('saveSelections', {key,data});
+    await idbSet(key,data);
+}
+
+async function applySavedSelections(){
+    if(!currentRepo || !currentBranch) return;
+    const key=`selections:${currentRepo.full_name}:${currentBranch}`;
+    const data=await idbGet(key);
+    log('applySavedSelections', {key,data});
+    if(!data) { updateOutputCards(); return; }
+    const {files=[],instructions=[],desc=[]}=data;
+    document.querySelectorAll('#file-tree input[type=checkbox]').forEach(cb=>{ cb.checked=files.includes(cb.dataset.path); });
+    document.querySelectorAll('.instruction-toggle').forEach(cb=>{ cb.checked=instructions.includes(Number(cb.dataset.id)); });
+    document.querySelectorAll('#desc-tree input[type=checkbox]').forEach(cb=>{ cb.checked=desc.includes(cb.dataset.path); });
+    document.querySelectorAll('#file-tree input[type=checkbox]').forEach(cb=>updateParentFolderStates(cb));
+    document.querySelectorAll('#desc-tree input[type=checkbox]').forEach(cb=>updateParentFolderStates(cb));
+    updateOutputCards();
 }
 
 function addLineNumbers(text){
@@ -973,6 +1008,7 @@ function getSelectedPaths(){
 
 async function copySelected(){
     const container=document.getElementById('output-cards');
+    log('copySelected', {cards: container.children.length});
     if(!container.children.length){
         showToast('Nothing selected','warning');
         return;
@@ -1005,8 +1041,10 @@ async function copySelected(){
     const tokens=Math.ceil(clipText.length/4.7);
     try {
         await navigator.clipboard.writeText(String(clipText));
+        log('copySelected success', {tokens});
         showToast(`${tokens} tokens copied to clipboard`,'success',3,40,200,'upper middle');
     } catch(err) {
+        log('copySelected fail', err);
         showToast('Failed to copy to clipboard','error',3,40,200,'upper middle');
     }
 }
