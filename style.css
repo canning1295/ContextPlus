@@ -28,10 +28,10 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 #copy-btn { margin-top:10px; width:90%; }
 #instruction-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 
-#instruction-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:300px; }
+#instruction-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:400px; }
 .desc-file { cursor:pointer; text-decoration:underline; }
 #description-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
-#description-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:300px; }
+#description-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:400px; }
 
 .modal-buttons { display:flex; justify-content:space-between; }
 #file-tree ul { list-style: none; padding-left: 20px; }
