@@ -674,6 +674,7 @@ function saveDescription(){
 function updateDescStatus(path){
     const span=document.querySelector(`.desc-status[data-path="${path}"]`);
     if(span) loadDescriptionStatus(path).then(stat=>{span.textContent=stat;});
+}
 
 async function callLLM(prompt){
     if(llmProvider === 'openai'){
