@@ -786,28 +786,28 @@ async function updateOutputCards(){
             contents.push(text);
         }
         const total=contents.join('\n').length;
-        const tokens=Math.ceil(total/4.7);
+        const tokens=approximateTokens(Math.ceil(total/4.7));
         const card=document.createElement('div');
         card.className='card';
         card.draggable=true;
         card.dataset.type='files';
         card.dataset.paths=JSON.stringify(filePaths);
         card.dataset.tokens=tokens;
-        card.textContent=`Selected Files - ${tokens} tokens`;
+        card.textContent=`Selected Files - ${formatTokens(tokens)} tokens`;
         cards.push(card);
     }
     const selectedInstr=document.querySelectorAll('.instruction-toggle:checked');
     selectedInstr.forEach(cb=>{
         const instr=instructionsData.find(i=>i.id==cb.dataset.id);
         if(instr){
-            const tokens=Math.ceil(instr.text.length/4.7);
+            const tokens=approximateTokens(Math.ceil(instr.text.length/4.7));
             const card=document.createElement('div');
             card.className='card';
             card.draggable=true;
             card.dataset.type='instruction';
             card.dataset.id=instr.id;
             card.dataset.tokens=tokens;
-            card.textContent=`${instr.title} - ${tokens} tokens`;
+            card.textContent=`${instr.title} - ${formatTokens(tokens)} tokens`;
             cards.push(card);
         }
     });
@@ -819,13 +819,13 @@ async function updateOutputCards(){
             const rec=await idbGet(key,'descriptions');
             if(rec && rec.text) total+=rec.text.length;
         }
-        const tokens=Math.ceil(total/4.7);
+        const tokens=approximateTokens(Math.ceil(total/4.7));
         const card=document.createElement('div');
         card.className='card';
         card.draggable=true;
         card.dataset.type='descriptions';
         card.dataset.tokens=tokens;
-        card.textContent=`File Descriptions - ${tokens} tokens`;
+        card.textContent=`File Descriptions - ${formatTokens(tokens)} tokens`;
         cards.push(card);
     }
     cards.forEach(c=>container.appendChild(c));
@@ -857,7 +857,15 @@ function updateTotalTokens(){
     const container=document.getElementById('output-cards');
     let total=0;
     container.querySelectorAll('.card').forEach(c=>{total+=Number(c.dataset.tokens)||0;});
-    document.getElementById('total-tokens').textContent=`(${total} tokens)`;
+    document.getElementById('total-tokens').textContent=`(${formatTokens(total)} tokens)`;
+}
+
+function approximateTokens(count){
+    return count>=10000 ? Math.round(count/1000)*1000 : Math.round(count/500)*500;
+}
+
+function formatTokens(count){
+    return `~${count.toLocaleString()}`;
 }
 
 function addLineNumbers(text){
@@ -1002,10 +1010,10 @@ async function copySelected(){
         }
     }
     const clipText=parts.join('\n\n');
-    const tokens=Math.ceil(clipText.length/4.7);
+    const tokens=approximateTokens(Math.ceil(clipText.length/4.7));
     try {
         await navigator.clipboard.writeText(String(clipText));
-        showToast(`${tokens} tokens copied to clipboard`,'success',3,40,200,'upper middle');
+        showToast(`${formatTokens(tokens)} tokens copied to clipboard`,'success',3,40,200,'upper middle');
     } catch(err) {
         showToast('Failed to copy to clipboard','error',3,40,200,'upper middle');
     }
