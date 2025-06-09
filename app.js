@@ -227,12 +227,16 @@ function closeInstructionModal(e){
     currentInstructionId=null;
 }
 
-function saveInstruction(){
+async function saveInstruction(){
     const title=document.getElementById('instruction-title').value.trim();
     const text=document.getElementById('instruction-text').value.trim();
     if(!title) { showToast('Title required','warning'); return; }
     if(!db){
-        log('saveInstruction skipped, db not initialized');
+        log('saveInstruction db not initialized, attempting reopen');
+        await openDB();
+    }
+    if(!db){
+        log('saveInstruction aborted, db still unavailable');
         showToast('Database unavailable','error');
         return;
     }
