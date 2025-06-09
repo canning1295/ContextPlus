@@ -578,22 +578,22 @@ function createDescList(obj,parent){
             checkbox.dataset.path=obj[key]._item.path;
         }
         checkbox.addEventListener('change', updateOutputCards);
-        const statusSpan=document.createElement('span');
-        statusSpan.className='desc-status';
-        statusSpan.dataset.path=checkbox.dataset.path;
-        loadDescriptionStatus(checkbox.dataset.path).then(stat=>{
-            statusSpan.textContent=stat;
-        });
         const nameSpan=document.createElement('span');
         nameSpan.textContent=' '+key+' ';
         if(!isFolder){
             nameSpan.className='desc-file';
             nameSpan.dataset.path=checkbox.dataset.path;
             nameSpan.addEventListener('click', openDescriptionModal);
+            const statusSpan=document.createElement('span');
+            statusSpan.className='desc-status';
+            statusSpan.dataset.path=checkbox.dataset.path;
+            loadDescriptionStatus(checkbox.dataset.path).then(stat=>{
+                statusSpan.textContent=stat;
+            });
+            li.appendChild(statusSpan);
         }
         li.appendChild(checkbox);
         li.appendChild(nameSpan);
-        li.appendChild(statusSpan);
         parent.appendChild(li);
         if(hasChildren){
             const ul=document.createElement('ul');
