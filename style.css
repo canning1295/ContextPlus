@@ -53,6 +53,14 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .big-btn { font-size: 1.1em; padding: 10px 16px; border-radius:6px; }
 .small-btn { font-size: 0.9em; padding: 4px 8px; border-radius:6px; }
 button { border-radius:6px; cursor:pointer; }
+#settings-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-color);
+  font-size: 1.4em;
+  padding: 2px 6px;
+  line-height: 1;
+}
 .icon { width:20px; height:20px; vertical-align:middle; margin-right:4px; }
 #auth-section input { width: 100%; padding: 4px; margin-bottom: 6px; }
 .instructions { font-size: 0.9em; line-height: 1.4; }

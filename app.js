@@ -880,7 +880,6 @@ async function init(){
     document.getElementById('select-all-btn').addEventListener('click', selectAll);
     document.getElementById('deselect-all-btn').addEventListener('click', deselectAll);
     document.getElementById('file-tree').addEventListener('change', handleFolderToggle);
-    document.getElementById('refresh-btn').addEventListener('click', loadFileTree);
     document.getElementById('theme-select').addEventListener('change', handleThemeChange);
     document.getElementById('settings-modal').addEventListener('click', (e) => { log('settings-modal background click'); closeSettings(e); });
     document.getElementById('settings-content').addEventListener('click', e=>e.stopPropagation());
