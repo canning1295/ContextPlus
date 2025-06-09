@@ -3,6 +3,7 @@
   --text-color: #000000;
   --top-bar-bg: #f0f0f0;
   --modal-bg: #ffffff;
+  --overlay-bg: rgba(255, 255, 255, 0.6);
 }
 
 .dark {
@@ -10,6 +11,7 @@
   --text-color: #ffffff;
   --top-bar-bg: #333333;
   --modal-bg: #444444;
+  --overlay-bg: rgba(0, 0, 0, 0.6);
 }
 
 body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); color: var(--text-color); }
@@ -73,7 +75,7 @@ button { border-radius:6px; cursor:pointer; }
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--overlay-bg);
   backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
