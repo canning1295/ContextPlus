@@ -27,6 +27,7 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .card.dragging { opacity:0.5; }
 #desc-tree ul{ list-style:none; padding-left:20px; }
 .desc-status{ margin-left:4px; }
+.instruction-toggle{ margin-right:4px; }
 #copy-btn { margin-top:10px; width:90%; }
 #instruction-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 
