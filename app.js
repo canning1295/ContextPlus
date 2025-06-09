@@ -184,6 +184,9 @@ function renderInstructions(){
         toggle.addEventListener('change', updateOutputCards);
         const span = document.createElement('span');
         span.textContent = instr.title;
+        span.className = 'instruction-title';
+        span.style.cursor = 'pointer';
+        span.addEventListener('click', () => openInstructionModal(instr.id));
         div.appendChild(toggle);
         div.appendChild(span);
         list.appendChild(div);
