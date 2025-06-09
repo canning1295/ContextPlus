@@ -685,23 +685,42 @@ function updateDescStatus(path){
 }
 
 async function callLLM(prompt){
-    if(llmProvider === 'openai'){
-        const body = {model: llmModel || 'gpt-3.5-turbo',messages:[{role:'system',content:'You generate detailed descriptions of project files.'},{role:'user',content:prompt}]};
-        const res = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${llmApiKey}`},body:JSON.stringify(body)});
-        const data = await res.json();
-        return (data.choices && data.choices[0].message.content) || '';
-    } else if(llmProvider === 'anthropic'){
-        const body = {model: llmModel || 'claude-3-haiku-20240307',messages:[{role:'user',content:prompt}],max_tokens:1024};
-        const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':llmApiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify(body)});
-        const data = await res.json();
-        return (data.content && data.content[0] && data.content[0].text) || '';
-    } else if(llmProvider === 'google'){
-        const body = {contents:[{role:'user',parts:[{text:prompt}]}]};
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${llmModel || 'gemini-pro'}:generateContent?key=${llmApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-        const data = await res.json();
-        return (data.candidates && data.candidates[0] && data.candidates[0].content.parts[0].text) || '';
+    try{
+        if(window.LLM_PROXY_URL){
+            const resp=await fetch(window.LLM_PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:llmProvider,model:llmModel,prompt,apiKey:llmApiKey})});
+            if(!resp.ok) throw new Error('Proxy request failed');
+            const data=await resp.json();
+            if(llmProvider==='openai') return (data.choices && data.choices[0].message.content) || '';
+            if(llmProvider==='anthropic') return (data.content && data.content[0] && data.content[0].text) || '';
+            if(llmProvider==='google') return (data.candidates && data.candidates[0] && data.candidates[0].content.parts[0].text) || '';
+            return '';
+        }
+        if(llmProvider === 'openai'){
+            const body = {model: llmModel || 'gpt-3.5-turbo',messages:[{role:'system',content:'You generate detailed descriptions of project files.'},{role:'user',content:prompt}]};
+            const res = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${llmApiKey}`},body:JSON.stringify(body)});
+            const data = await res.json();
+            return (data.choices && data.choices[0].message.content) || '';
+        } else if(llmProvider === 'anthropic'){
+            const body = {model: llmModel || 'claude-3-haiku-20240307',messages:[{role:'user',content:prompt}],max_tokens:1024};
+            const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':llmApiKey,'anthropic-version':'2023-06-01'},body:JSON.stringify(body)});
+            const data = await res.json();
+            return (data.content && data.content[0] && data.content[0].text) || '';
+        } else if(llmProvider === 'google'){
+            const body = {contents:[{role:'user',parts:[{text:prompt}]}]};
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${llmModel || 'gemini-pro'}:generateContent?key=${llmApiKey}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+            const data = await res.json();
+            return (data.candidates && data.candidates[0] && data.candidates[0].content.parts[0].text) || '';
+        }
+        return '';
+    }catch(err){
+        log('callLLM error',err);
+        if(err.message && err.message.includes('Failed to fetch')){
+            showToast('LLM request blocked by CORS','error',4,40,220,'upper middle');
+        }else{
+            showToast('LLM request failed','error',3,40,200,'upper middle');
+        }
+        throw err;
     }
-    return '';
 }
 
 async function generateDescriptions(){
@@ -732,7 +751,7 @@ async function generateDescriptions(){
     let asyncFailed=false;
     if(llmAsync){
         try{ await Promise.all(pending.map(run)); }
-        catch(err){ asyncFailed=true; log('async gen failed',err); }
+        catch(err){ asyncFailed=true; log('async gen failed',err); showToast('LLM request failed','error',3,40,200,'upper middle'); }
     }
     if(!llmAsync || asyncFailed){
         for(const f of pending){
