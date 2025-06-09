@@ -811,13 +811,19 @@ async function updateOutputCards(){
     });
     const descChecks=document.querySelectorAll('#desc-tree input[type=checkbox]:checked');
     if(descChecks.length){
-        let total=0; // not computing actual lengths as descriptions not loaded
+        let total=0;
+        for(const cb of descChecks){
+            const key=[currentRepo.full_name, currentBranch, cb.dataset.path];
+            const rec=await idbGet(key,'descriptions');
+            if(rec && rec.text) total+=rec.text.length;
+        }
+        const tokens=Math.ceil(total/4.7);
         const card=document.createElement('div');
         card.className='card';
         card.draggable=true;
         card.dataset.type='descriptions';
-        card.dataset.tokens=total;
-        card.textContent=`File Descriptions`;
+        card.dataset.tokens=tokens;
+        card.textContent=`File Descriptions - ${tokens} tokens`;
         cards.push(card);
     }
     cards.forEach(c=>container.appendChild(c));
@@ -988,9 +994,13 @@ async function copySelected(){
         }
     }
     const clipText=parts.join('\n\n');
-    await navigator.clipboard.writeText(String(clipText));
     const tokens=Math.ceil(clipText.length/4.7);
-    showToast(`${tokens} tokens copied to clipboard`,'success',3,40,200,'upper middle');
+    try {
+        await navigator.clipboard.writeText(String(clipText));
+        showToast(`${tokens} tokens copied to clipboard`,'success',3,40,200,'upper middle');
+    } catch(err) {
+        showToast('Failed to copy to clipboard','error',3,40,200,'upper middle');
+    }
 }
 
 async function init(){
