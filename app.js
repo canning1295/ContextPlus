@@ -777,10 +777,12 @@ async function updateOutputCards(){
     const filePaths=getSelectedPaths();
     if(filePaths.length){
         const contents=[];
+        const lineNumbers=document.getElementById('include-line-numbers').checked;
         for(const p of filePaths){
             const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
             const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
-            const text=await resp.text();
+            let text=await resp.text();
+            if(lineNumbers) text=addLineNumbers(text);
             contents.push(text);
         }
         const total=contents.join('\n').length;
@@ -850,6 +852,10 @@ function updateTotalTokens(){
     let total=0;
     container.querySelectorAll('.card').forEach(c=>{total+=Number(c.dataset.tokens)||0;});
     document.getElementById('total-tokens').textContent=`(${total} tokens)`;
+}
+
+function addLineNumbers(text){
+    return text.split('\n').map((l,i)=>`L${i+1} ${l}`).join('\n');
 }
 
 function createList(obj,parent){
@@ -969,10 +975,12 @@ async function copySelected(){
     for(const card of container.children){
         if(card.dataset.type==='files'){
             const paths=JSON.parse(card.dataset.paths||'[]');
+            const lineNumbers=document.getElementById('include-line-numbers').checked;
             for(const p of paths){
                 const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
                 const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
-                const text=await resp.text();
+                let text=await resp.text();
+                if(lineNumbers) text=addLineNumbers(text);
                 parts.push(`// ${p}\n`+text);
             }
         }else if(card.dataset.type==='instruction'){

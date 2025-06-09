@@ -47,6 +47,13 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 #file-tree,
 #instructions-list,
 #desc-tree { margin-top: 0; }
+.section-divider {
+  width: 75%;
+  margin: 10px auto;
+}
+#line-number-option {
+  text-align: center;
+}
 .settings-tab {
   background: var(--top-bar-bg);
   border: 1px solid #ccc;
