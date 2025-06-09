@@ -36,8 +36,25 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 #description-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 #description-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:400px; }
 #generate-status { margin-top:6px; min-height:20px; font-size:0.9em; }
-.settings-tab { margin-right:6px; }
-.settings-pane { display:none; flex-direction:column; gap:10px; }
+.settings-tab {
+  background: var(--top-bar-bg);
+  border: 1px solid #ccc;
+  border-bottom: none;
+  padding: 6px 12px;
+  margin-right: 4px;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+  cursor: pointer;
+}
+.settings-tab.active {
+  background: var(--modal-bg);
+  font-weight: bold;
+  border-color: #ccc;
+  border-bottom: 2px solid var(--modal-bg);
+}
+#settings-tabs { display: flex; border-bottom: 1px solid #ccc; margin-bottom: 10px; }
+#settings-panels { flex: 1; }
+.settings-pane { display:none; flex-direction:column; gap:10px; flex:1; }
 .settings-pane.active { display:flex; }
 
 .modal-buttons { display:flex; justify-content:space-between; }
@@ -53,7 +70,17 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
   display:none;
 }
 .hidden { display:none; }
-#modal, #settings-content { background: var(--modal-bg); padding: 20px; display:flex; flex-direction:column; gap:15px; }
+#modal, #settings-content {
+  background: var(--modal-bg);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+#settings-content {
+  width: 420px;
+  min-height: 320px;
+}
 .big-btn { font-size: 1.1em; padding: 10px 16px; border-radius:6px; }
 .small-btn { font-size: 0.9em; padding: 4px 8px; border-radius:6px; }
 button { border-radius:6px; cursor:pointer; }
@@ -67,6 +94,7 @@ button { border-radius:6px; cursor:pointer; }
 }
 .icon { width:20px; height:20px; vertical-align:middle; margin-right:4px; }
 #auth-section input { width: 100%; padding: 4px; margin-bottom: 6px; }
+#auth-status { margin: 4px 0 8px; }
 .instructions { font-size: 0.9em; line-height: 1.4; }
 #toast-container { position: fixed; width: 100%; pointer-events: none; }
 .toast { /* Toast visibility history: width fix v2 */

@@ -160,6 +160,9 @@ function closeSettings(e) {
 }
 
 function showTab(name){
+    document.querySelectorAll('.settings-tab').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.tab===name);
+    });
     document.querySelectorAll('.settings-pane').forEach(p=>p.classList.remove('active'));
     const pane=document.getElementById('tab-'+name);
     if(pane) pane.classList.add('active');
