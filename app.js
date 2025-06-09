@@ -687,9 +687,15 @@ function updateDescStatus(path){
 async function callLLM(prompt){
     try{
         if(window.LLM_PROXY_URL){
+            log('callLLM via proxy', {provider: llmProvider, model: llmModel});
             const resp=await fetch(window.LLM_PROXY_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:llmProvider,model:llmModel,prompt,apiKey:llmApiKey})});
-            if(!resp.ok) throw new Error('Proxy request failed');
-            const data=await resp.json();
+            const text = await resp.text();
+            log('callLLM proxy status', resp.status);
+            if(!resp.ok){
+                log('callLLM proxy error body', text);
+                throw new Error(`Proxy request failed (${resp.status})`);
+            }
+            const data=JSON.parse(text);
             if(llmProvider==='openai') return (data.choices && data.choices[0].message.content) || '';
             if(llmProvider==='anthropic') return (data.content && data.content[0] && data.content[0].text) || '';
             if(llmProvider==='google') return (data.candidates && data.candidates[0] && data.candidates[0].content.parts[0].text) || '';
@@ -717,7 +723,7 @@ async function callLLM(prompt){
         if(err.message && err.message.includes('Failed to fetch')){
             showToast('LLM request blocked by CORS','error',4,40,220,'upper middle');
         }else{
-            showToast('LLM request failed','error',3,40,200,'upper middle');
+            showToast(`LLM request failed: ${err.message}`,'error',3,40,200,'upper middle');
         }
         throw err;
     }
@@ -732,12 +738,14 @@ async function generateDescriptions(){
     statusEl.textContent='Starting...';
     const files=(repoTree||[]).filter(item=>item.type==='blob');
     const pending=[];
+    log('generateDescriptions start', { total: files.length });
     for(const f of files){
         const key=[currentRepo.full_name,currentBranch,f.path];
         const rec=await idbGet(key,'descriptions');
         if(!rec || (!rec.text && !rec.na)) pending.push(f);
     }
     const run=async f=>{
+        log('generateDescriptions processing', f.path);
         statusEl.textContent=`Fetching ${f.path}`;
         const fileUrl=`https://api.github.com/repos/${currentRepo.full_name}/contents/${f.path}?ref=${currentBranch}`;
         const resp=await fetch(fileUrl,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
@@ -747,6 +755,7 @@ async function generateDescriptions(){
         const rec = {repo:currentRepo.full_name,branch:currentBranch,path:f.path,text};
         await idbSet([rec.repo,rec.branch,rec.path],rec,'descriptions');
         updateDescStatus(f.path);
+        log('generateDescriptions saved', f.path);
     };
     let asyncFailed=false;
     if(llmAsync){
