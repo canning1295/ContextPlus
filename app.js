@@ -53,10 +53,13 @@ function idbGet(key, storeName='settings') {
     // IndexedDB null crash fix history:
     // 1. Crashed when openDB failed and db remained null.
     //    Added check to return null and log when db unavailable.
+    // 2. Added localStorage fallback when IndexedDB is unavailable.
     return new Promise(resolve => {
         if(!db){
-            log('idbGet skipped, db not initialized', {key, storeName});
-            resolve(null);
+            log('idbGet fallback localStorage', {key, storeName});
+            const lsKey = `${storeName}:${encodeURIComponent(JSON.stringify(key))}`;
+            const val = localStorage.getItem(lsKey);
+            resolve(val ? JSON.parse(val) : null);
             return;
         }
         const tx = db.transaction(storeName);
@@ -72,9 +75,13 @@ function idbGet(key, storeName='settings') {
 function idbSet(key, val, storeName='settings') {
     // IndexedDB null crash fix history:
     // 1. Added early return when db is not available.
+    // 2. Added localStorage fallback when IndexedDB is unavailable.
     return new Promise(resolve => {
         if(!db){
-            log('idbSet skipped, db not initialized', {key, storeName});
+            log('idbSet fallback localStorage', {key, storeName});
+            const lsKey = `${storeName}:${encodeURIComponent(JSON.stringify(key))}`;
+            if(val === undefined || val === null) localStorage.removeItem(lsKey);
+            else localStorage.setItem(lsKey, JSON.stringify(val));
             resolve();
             return;
         }
@@ -507,12 +514,16 @@ function createDescList(obj,parent){
 
 function loadDescriptionStatus(path){
     return new Promise(resolve=>{
+        const key=[currentRepo?currentRepo.full_name:'', currentBranch || '', path];
         if(!db){
-            log('loadDescriptionStatus skipped, db not initialized');
-            resolve('❌');
+            log('loadDescriptionStatus fallback localStorage');
+            idbGet(key,'descriptions').then(rec=>{
+                if(!rec) resolve('❌');
+                else if(rec.na) resolve('🚫');
+                else resolve('✅');
+            });
             return;
         }
-        const key=[currentRepo?currentRepo.full_name:'', currentBranch || '', path];
         const tx=db.transaction('descriptions');
         const store=tx.objectStore('descriptions');
         const req=store.get(key);
@@ -554,15 +565,23 @@ function closeDescriptionModal(e){
 }
 
 function saveDescription(){
-    if(!db || !currentRepo || !currentBranch || !currentDescPath){
+    if(!currentRepo || !currentBranch || !currentDescPath){
         showToast('Database unavailable','error');
         closeDescriptionModal();
         return;
     }
     const text=document.getElementById('description-text').value.trim();
     const na=document.getElementById('description-skip').checked;
-    const store=db.transaction('descriptions','readwrite').objectStore('descriptions');
     const rec={repo:currentRepo.full_name, branch:currentBranch, path:currentDescPath, text, na};
+    if(!db){
+        log('saveDescription localStorage fallback');
+        idbSet([currentRepo.full_name,currentBranch,currentDescPath], rec, 'descriptions').then(()=>{
+            updateDescStatus(currentDescPath);
+            closeDescriptionModal();
+        });
+        return;
+    }
+    const store=db.transaction('descriptions','readwrite').objectStore('descriptions');
     store.put(rec);
     store.transaction.oncomplete=()=>{
         updateDescStatus(currentDescPath);
