@@ -167,8 +167,12 @@ let currentDescPath = null;
 
 function loadInstructions(){
     if(!db){
-        log('loadInstructions skipped, db not initialized');
-        instructionsData = [];
+        log('loadInstructions skipped, db not initialized; using localStorage');
+        try {
+            instructionsData = JSON.parse(localStorage.getItem('instructions') || '[]');
+        } catch(err) {
+            instructionsData = [];
+        }
         renderInstructions();
         return;
     }
@@ -177,6 +181,7 @@ function loadInstructions(){
     const req = store.getAll();
     req.onsuccess = () => {
         instructionsData = req.result || [];
+        localStorage.setItem('instructions', JSON.stringify(instructionsData));
         renderInstructions();
     };
 }
@@ -245,8 +250,17 @@ async function saveInstruction(){
         await openDB();
     }
     if(!db){
-        log('saveInstruction aborted, db still unavailable');
-        showToast('Database unavailable','error');
+        log('saveInstruction using localStorage fallback');
+        if(currentInstructionId){
+            const idx = instructionsData.findIndex(i=>i.id===currentInstructionId);
+            if(idx!==-1) instructionsData[idx] = {id:currentInstructionId,title,text};
+        } else {
+            const nextId = instructionsData.reduce((max,i)=>Math.max(max,i.id||0),0)+1;
+            instructionsData.push({id:nextId,title,text});
+        }
+        localStorage.setItem('instructions', JSON.stringify(instructionsData));
+        loadInstructions();
+        closeInstructionModal();
         return;
     }
     const store = db.transaction('instructions','readwrite').objectStore('instructions');
@@ -261,8 +275,10 @@ async function saveInstruction(){
 function deleteInstruction(){
     if(currentInstructionId){
         if(!db){
-            log('deleteInstruction skipped, db not initialized');
-            showToast('Database unavailable','error');
+            log('deleteInstruction skipped, db not initialized; using localStorage');
+            instructionsData = instructionsData.filter(i=>i.id!==currentInstructionId);
+            localStorage.setItem('instructions', JSON.stringify(instructionsData));
+            loadInstructions();
             closeInstructionModal();
             return;
         }
