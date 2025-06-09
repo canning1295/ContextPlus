@@ -139,13 +139,13 @@ button { border-radius:6px; cursor:pointer; }
   background: var(--text-color);
   border-radius: 2px;
   transform-origin: 0 40px;
-  opacity: 0.2;
+  opacity: 0;
   animation: spinnerFade 1.2s linear infinite;
 }
 
 @keyframes spinnerFade {
-  0% { opacity: 1; }
-  20%, 100% { opacity: 0.2; }
+  0%, 50%, 100% { opacity: 0; }
+  15%, 45% { opacity: 1; }
 }
 
 #spinner div:nth-child(1)  { transform: rotate(0deg);  animation-delay: 0s; }
