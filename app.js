@@ -91,7 +91,10 @@ function idbSet(key, val, storeName='settings') {
             return;
         }
         const tx = db.transaction(storeName, 'readwrite');
-        tx.objectStore(storeName).put(val, key);
+        const store = tx.objectStore(storeName);
+        // If store uses a key path, omit explicit key to avoid DataError
+        if(store.keyPath) store.put(val);
+        else store.put(val, key);
         tx.oncomplete = () => {
             resolve();
         };
