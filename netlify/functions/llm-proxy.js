@@ -7,6 +7,7 @@ exports.handler = async function(event) {
     if (!provider || !apiKey || !prompt) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing parameters' }) };
     }
+    console.log('LLM proxy request', { provider, model });
     let url;
     let body;
     let headers = { 'Content-Type': 'application/json' };
@@ -37,6 +38,11 @@ exports.handler = async function(event) {
     }
     const resp = await fetch(url, { method: 'POST', headers, body });
     const data = await resp.text();
+    console.log('LLM proxy upstream status', resp.status);
+    if (!resp.ok) {
+      console.error('LLM proxy upstream error', resp.status, data);
+      return { statusCode: resp.status, body: data };
+    }
     return {
       statusCode: resp.status,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
@@ -44,6 +50,6 @@ exports.handler = async function(event) {
     };
   } catch (err) {
     console.error('LLM proxy error', err);
-    return { statusCode: 500, body: JSON.stringify({ error: 'Proxy failed' }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'Proxy failed', message: err.message }) };
   }
 };
