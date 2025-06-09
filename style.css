@@ -21,7 +21,9 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .column { flex:1; padding:20px; border-right:1px solid #ccc; }
 .column:last-child { border-right:none; }
 #select-buttons { margin:10px 0; display:flex; gap:10px; }
-#create-instruction,
+#create-instruction {
+  margin-bottom: 10px;
+}
 #generate-desc-btn {
   margin-bottom: 10px;
 }
@@ -29,7 +31,7 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 #output-cards { display:flex; flex-direction:column; align-items:center; gap:10px; }
 .card { background:var(--modal-bg); padding:10px; border-radius:6px; width:80%; max-width:500px; cursor:grab; }
 .card.dragging { opacity:0.5; }
-#desc-tree ul{ list-style:none; padding-left:20px; }
+#desc-tree ul{ list-style:none; padding-left:20px; margin-top:0; }
 .desc-status{ margin-left:4px; }
 .instruction-toggle{ margin-right:4px; }
 #copy-btn { margin-top:10px; width:600px; }
@@ -40,6 +42,9 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 #description-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 #description-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:400px; }
 #generate-status { margin-top:0; min-height:0; font-size:0.9em; }
+#file-tree,
+#instructions-list,
+#desc-tree { margin-top: 0; }
 .settings-tab {
   background: var(--top-bar-bg);
   border: 1px solid #ccc;
@@ -62,7 +67,7 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .settings-pane.active { display:flex; }
 
 .modal-buttons { display:flex; justify-content:space-between; }
-#file-tree ul { list-style: none; padding-left: 20px; }
+#file-tree ul { list-style: none; padding-left: 20px; margin-top: 0; }
 #modal-overlay, #settings-modal { position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 
 /* Hide modals by default when the hidden class is present
