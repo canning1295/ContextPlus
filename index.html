@@ -7,6 +7,12 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="loading-overlay">
+        <div id="spinner">
+            <div></div><div></div><div></div><div></div><div></div><div></div>
+            <div></div><div></div><div></div><div></div><div></div><div></div>
+        </div>
+    </div>
     <div id="top-bar">
         <div id="repo-section">
             <span id="branch-icon">🌿</span>
@@ -90,7 +96,7 @@
             <label for="instruction-title">Title</label>
             <input id="instruction-title" type="text">
             <label for="instruction-text">Instructions</label>
-            <textarea id="instruction-text" rows="6"></textarea>
+            <textarea id="instruction-text" rows="12"></textarea>
             <div class="modal-buttons">
                 <button id="instruction-save" class="small-btn">Save</button>
                 <button id="instruction-delete" class="small-btn">Delete</button>
