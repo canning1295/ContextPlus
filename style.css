@@ -35,6 +35,10 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .desc-file { cursor:pointer; text-decoration:underline; }
 #description-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 #description-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:400px; }
+#generate-status { margin-top:6px; min-height:20px; font-size:0.9em; }
+.settings-tab { margin-right:6px; }
+.settings-pane { display:none; flex-direction:column; gap:10px; }
+.settings-pane.active { display:flex; }
 
 .modal-buttons { display:flex; justify-content:space-between; }
 #file-tree ul { list-style: none; padding-left: 20px; }

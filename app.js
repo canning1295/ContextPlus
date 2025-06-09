@@ -15,6 +15,10 @@ let accessToken = localStorage.getItem('gh_token') || null;
 let currentRepo = JSON.parse(localStorage.getItem('current_repo') || 'null');
 let currentBranch = localStorage.getItem('current_branch');
 let theme = localStorage.getItem('theme') || 'light';
+let llmProvider = null;
+let llmApiKey = null;
+let llmAsync = false;
+let repoTree = [];
 
 // openDB hang fix history:
 // 1. Added fallback timeout to ensure init proceeds even if request events never fire.
@@ -129,6 +133,7 @@ function openSettings() {
     // ensure display resets in case inline styles were added while debugging
     modal.style.display = 'flex';
     modal.classList.remove('hidden');
+    showTab('github');
     document.getElementById('auth-status').textContent = accessToken ? 'Connected' : 'Not connected';
     if(accessToken){
         document.getElementById('auth-btn').innerHTML = '❌ Disconnect';
@@ -139,6 +144,9 @@ function openSettings() {
     document.getElementById('client-id-input').value = clientId || '';
     document.getElementById('client-secret-input').value = clientSecret || '';
     document.getElementById('theme-select').value = theme;
+    document.getElementById('llm-provider-select').value = llmProvider || 'openai';
+    document.getElementById('llm-api-key').value = llmApiKey || '';
+    document.getElementById('llm-async').checked = !!llmAsync;
 }
 
 function closeSettings(e) {
@@ -151,6 +159,12 @@ function closeSettings(e) {
     modal.style.display = 'none';
 }
 
+function showTab(name){
+    document.querySelectorAll('.settings-pane').forEach(p=>p.classList.remove('active'));
+    const pane=document.getElementById('tab-'+name);
+    if(pane) pane.classList.add('active');
+}
+
 function handleThemeChange() {
     theme = document.getElementById('theme-select').value;
     localStorage.setItem('theme', theme);
@@ -159,6 +173,16 @@ function handleThemeChange() {
 
 function openGitHubSettings(){
     window.open('https://github.com/settings/applications/new', '_blank');
+}
+
+function saveLLMSettings(){
+    llmProvider = document.getElementById('llm-provider-select').value;
+    llmApiKey = document.getElementById('llm-api-key').value.trim();
+    llmAsync = document.getElementById('llm-async').checked;
+    idbSet('llm_provider', llmProvider);
+    idbSet('llm_api_key', llmApiKey);
+    idbSet('llm_async', llmAsync);
+    showToast('LLM settings saved','success',2,40,200,'upper middle');
 }
 
 let instructionsData = [];
@@ -444,8 +468,9 @@ function loadFileTree() {
                 const data = await r.json();
                 return data;
     }).then(data=>{
-        buildTree(data.tree);
-        buildDescTree(data.tree);
+        repoTree = data.tree || [];
+        buildTree(repoTree);
+        buildDescTree(repoTree);
         updateOutputCards();
     });
 }
@@ -608,6 +633,47 @@ function saveDescription(){
 function updateDescStatus(path){
     const span=document.querySelector(`.desc-status[data-path="${path}"]`);
     if(span) loadDescriptionStatus(path).then(stat=>{span.textContent=stat;});
+}
+
+async function generateDescriptions(){
+    if(!llmApiKey){
+        openSettings();
+        return;
+    }
+    const statusEl=document.getElementById('generate-status');
+    statusEl.textContent='Starting...';
+    const files=(repoTree||[]).filter(item=>item.type==='blob');
+    const pending=[];
+    for(const f of files){
+        const key=[currentRepo.full_name,currentBranch,f.path];
+        const rec=await idbGet(key,'descriptions');
+        if(!rec || (!rec.text && !rec.na)) pending.push(f);
+    }
+    const run=async f=>{
+        statusEl.textContent=`Fetching ${f.path}`;
+        const fileUrl=`https://api.github.com/repos/${currentRepo.full_name}/contents/${f.path}?ref=${currentBranch}`;
+        const resp=await fetch(fileUrl,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
+        const content=await resp.text();
+        statusEl.textContent=`Describing ${f.path}`;
+        const body={model:'gpt-3.5-turbo',messages:[{role:'system',content:'You generate detailed descriptions of project files.'},{role:'user',content:`Describe the purpose and contents of this file for developers:\n\n${content}`}]};
+        const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${llmApiKey}`},body:JSON.stringify(body)});
+        const data=await res.json();
+        const text=(data.choices&&data.choices[0].message.content)||'';
+        const rec={repo:currentRepo.full_name,branch:currentBranch,path:f.path,text};
+        await idbSet([rec.repo,rec.branch,rec.path],rec,'descriptions');
+        updateDescStatus(f.path);
+    };
+    let asyncFailed=false;
+    if(llmAsync){
+        try{ await Promise.all(pending.map(run)); }
+        catch(err){ asyncFailed=true; log('async gen failed',err); }
+    }
+    if(!llmAsync || asyncFailed){
+        for(const f of pending){
+            try{ await run(f); }catch(err){ log('sync gen failed',err); showToast('LLM request failed','error',3,40,200,'upper middle'); break; }
+        }
+    }
+    statusEl.textContent='Done';
 }
 
 async function updateOutputCards(){
@@ -839,8 +905,14 @@ async function init(){
     log('init after openDB', {dbInitialized: !!db});
     clientId = await idbGet('client_id');
     clientSecret = await idbGet('client_secret');
+    llmProvider = await idbGet('llm_provider');
+    llmApiKey = await idbGet('llm_api_key');
+    llmAsync = await idbGet('llm_async');
     document.getElementById('client-id-input').value = clientId || '';
     document.getElementById('client-secret-input').value = clientSecret || '';
+    document.getElementById('llm-provider-select').value = llmProvider || 'openai';
+    document.getElementById('llm-api-key').value = llmApiKey || '';
+    document.getElementById('llm-async').checked = !!llmAsync;
     log('init retrieved creds', {accessToken, clientId, clientSecret});
     // ensure modals start hidden
     ['settings-modal','modal-overlay','instruction-modal','description-modal'].forEach(id=>{
@@ -893,6 +965,9 @@ async function init(){
     document.getElementById('description-save').addEventListener('click', saveDescription);
     document.getElementById('description-modal').addEventListener('click', e=>{ log('description-modal background click'); closeDescriptionModal(e); });
     document.getElementById('description-content').addEventListener('click', e=>e.stopPropagation());
+    document.querySelectorAll('.settings-tab').forEach(btn=>btn.addEventListener('click',()=>showTab(btn.dataset.tab)));
+    document.getElementById('llm-save-btn').addEventListener('click', saveLLMSettings);
+    document.getElementById('generate-desc-btn').addEventListener('click', generateDescriptions);
     loadInstructions();
     log('init listeners attached');
     const overlay = document.getElementById('loading-overlay');
