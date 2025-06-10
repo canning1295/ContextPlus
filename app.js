@@ -1010,6 +1010,16 @@ function deselectAll(){
     updateOutputCards();
 }
 
+function selectAllDesc(){
+    document.querySelectorAll('#desc-tree input[type=checkbox]').forEach(cb=>cb.checked=true);
+    updateOutputCards();
+}
+
+function deselectAllDesc(){
+    document.querySelectorAll('#desc-tree input[type=checkbox]').forEach(cb=>cb.checked=false);
+    updateOutputCards();
+}
+
 function getSelectedPaths(){
     const checkboxes=document.querySelectorAll('#file-tree input[type=checkbox]:checked');
     return Array.from(checkboxes)
@@ -1115,6 +1125,10 @@ async function init(){
     document.getElementById('copy-btn').addEventListener('click', copySelected);
     document.getElementById('select-all-btn').addEventListener('click', selectAll);
     document.getElementById('deselect-all-btn').addEventListener('click', deselectAll);
+    const dsa=document.getElementById('desc-select-all-btn');
+    if(dsa) dsa.addEventListener('click', selectAllDesc);
+    const dda=document.getElementById('desc-deselect-all-btn');
+    if(dda) dda.addEventListener('click', deselectAllDesc);
     document.getElementById('file-tree').addEventListener('change', handleFolderToggle);
     document.getElementById('theme-select').addEventListener('change', handleThemeChange);
     document.getElementById('settings-modal').addEventListener('click', (e) => { log('settings-modal background click'); closeSettings(e); });
