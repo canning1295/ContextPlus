@@ -21,6 +21,7 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .column { flex:1; padding:20px; border-right:1px solid #ccc; }
 .column:last-child { border-right:none; }
 #select-buttons { margin:10px 0; display:flex; gap:10px; }
+#desc-select-buttons { margin:10px 0; display:flex; gap:10px; }
 #create-instruction {
   margin-bottom: 10px;
 }
@@ -53,6 +54,9 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
   margin: 10px auto;
 }
 #line-number-option {
+  text-align: center;
+}
+#generate-desc-option {
   text-align: center;
 }
 .settings-tab {
