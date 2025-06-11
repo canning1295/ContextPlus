@@ -109,6 +109,7 @@ applyTheme();
 
 function showToast(msg, type='success', seconds=3, h=40, w=200, loc='upper middle') {
     const container = document.getElementById('toast-container');
+    if(!container) return null;
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
     toast.textContent = msg;
@@ -120,6 +121,7 @@ function showToast(msg, type='success', seconds=3, h=40, w=200, loc='upper middl
     if(horiz.includes('middle')) toast.style.transform = 'translateX(-50%)';
     container.appendChild(toast);
     if(seconds>0) setTimeout(()=>toast.remove(), seconds*1000);
+    return toast;
 }
 
 function updateRepoLabels() {
@@ -1034,6 +1036,7 @@ async function copySelected(){
         showToast('Nothing selected','warning');
         return;
     }
+    const progressToast=showToast('Copying...','info',0,40,200,'upper middle');
     const parts=[];
     for(const card of container.children){
         if(card.dataset.type==='files'){
@@ -1063,9 +1066,11 @@ async function copySelected(){
     try {
         await navigator.clipboard.writeText(String(clipText));
         log('copySelected success', {tokens});
+        if(progressToast) progressToast.remove();
         showToast(`${tokens} tokens copied to clipboard`,'success',3,40,200,'upper middle');
     } catch(err) {
         log('copySelected fail', err);
+        if(progressToast) progressToast.remove();
         showToast('Failed to copy to clipboard','error',3,40,200,'upper middle');
     }
 }
