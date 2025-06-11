@@ -907,6 +907,38 @@ function updateGenerateButton(){
     btn.disabled=!(hasCards && aiOk);
 }
 
+async function buildContextBundle(){
+    const bundle={files:[],instructions:[],aiRequest:null,descriptions:[]};
+    const container=document.getElementById('output-cards');
+    const lineNumbers=document.getElementById('include-line-numbers').checked;
+    const aiToggle=document.getElementById('ai-instructions-toggle');
+    const aiText=document.getElementById('ai-instructions').value.trim();
+    if(aiToggle && aiToggle.checked && aiText) bundle.aiRequest=aiText;
+    for(const card of container.children){
+        if(card.dataset.type==='files'){
+            const paths=JSON.parse(card.dataset.paths||'[]');
+            for(const p of paths){
+                const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
+                const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
+                let text=await resp.text();
+                if(lineNumbers) text=addLineNumbers(text);
+                bundle.files.push({path:p,text});
+            }
+        }else if(card.dataset.type==='instruction'){
+            const instr=instructionsData.find(i=>i.id==card.dataset.id);
+            if(instr) bundle.instructions.push(instr.text);
+        }else if(card.dataset.type==='descriptions'){
+            const descChecks=document.querySelectorAll('#desc-tree input[type=checkbox]:checked');
+            for(const cb of descChecks){
+                const key=[currentRepo.full_name,currentBranch,cb.dataset.path];
+                const rec=await idbGet(key,'descriptions');
+                if(rec && rec.text) bundle.descriptions.push(rec.text);
+            }
+        }
+    }
+    return bundle;
+}
+
 async function saveSelections(){
     if(!currentRepo || !currentBranch) return;
     const files=getSelectedPaths();
@@ -1068,32 +1100,12 @@ async function copySelected(){
         return;
     }
     const progressToast=showToast('Copying...','info',0,40,200,'upper middle');
+    const bundle=await buildContextBundle();
     const parts=[];
-    for(const card of container.children){
-        if(card.dataset.type==='files'){
-            const paths=JSON.parse(card.dataset.paths||'[]');
-            const lineNumbers=document.getElementById('include-line-numbers').checked;
-            for(const p of paths){
-                const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
-                const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
-                let text=await resp.text();
-                if(lineNumbers) text=addLineNumbers(text);
-                parts.push(`// ${p}\n`+text);
-            }
-        }else if(card.dataset.type==='instruction'){
-            const instr=instructionsData.find(i=>i.id==card.dataset.id);
-            if(instr) parts.push(instr.text);
-        }else if(card.dataset.type==='descriptions'){
-            const descChecks=document.querySelectorAll('#desc-tree input[type=checkbox]:checked');
-            for(const cb of descChecks){
-                const key=[currentRepo.full_name, currentBranch, cb.dataset.path];
-                const rec=await idbGet(key,'descriptions');
-                if(rec && rec.text) parts.push(rec.text);
-            }
-        }else if(card.dataset.type==='ai'){
-            parts.push(aiText);
-        }
-    }
+    bundle.files.forEach(f=>parts.push(`// ${f.path}\n${f.text}`));
+    bundle.instructions.forEach(t=>parts.push(t));
+    bundle.descriptions.forEach(d=>parts.push(d));
+    if(bundle.aiRequest) parts.push(bundle.aiRequest);
     const clipText=parts.join('\n\n');
     const tokens=approximateTokens(Math.ceil(clipText.length/4.7));
     try {
