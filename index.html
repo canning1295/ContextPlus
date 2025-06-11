@@ -61,12 +61,35 @@
 
     <div id="output-col">
         <h3 id="output-title">Output <span id="total-tokens"></span></h3>
+        <div id="ai-instructions-section">
+            <label><input type="checkbox" id="ai-instructions-toggle"> Include AI Request</label>
+            <textarea id="ai-instructions" rows="4" placeholder="Enter AI instructions"></textarea>
+        </div>
         <div id="drag-hint" class="instructions">Drag cards to reorder</div>
         <div id="output-cards"></div>
         <button id="copy-btn" class="big-btn">📋 Copy Selected</button>
+        <button id="generate-btn" class="big-btn" disabled>⚡ Generate Updates</button>
     </div>
 
+    <div id="task-list"></div>
+
     <div id="toast-container"></div>
+
+    <div id="prompt-modal" class="hidden">
+        <div id="prompt-content">
+            <h2>Prompt Preview</h2>
+            <div id="prompt-tabs">
+                <button class="prompt-tab" data-tab="prompt">Prompt</button>
+                <button class="prompt-tab" data-tab="payload">Payload</button>
+            </div>
+            <pre id="prompt-prompt" class="prompt-pane"></pre>
+            <pre id="prompt-payload" class="prompt-pane"></pre>
+            <div class="modal-buttons">
+                <button id="prompt-send" class="small-btn">Send</button>
+                <button id="prompt-cancel" class="small-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
 
     <div id="modal-overlay" class="hidden">
         <div id="modal">
@@ -128,6 +151,8 @@
                             <option value="dark">Dark</option>
                         </select>
                     </div>
+                    <label><input type="checkbox" id="dry-run-toggle"> Dry-run mode</label>
+                    <label><input type="checkbox" id="beta-toggle"> Enable beta features</label>
                 </div>
             </div>
             <button id="settings-close">✖ Close</button>
@@ -143,6 +168,7 @@
             <div class="modal-buttons">
                 <button id="instruction-save" class="small-btn">Save</button>
                 <button id="instruction-delete" class="small-btn">Delete</button>
+                <button id="instruction-restore" class="small-btn hidden">Restore Default</button>
                 <button id="instruction-close" class="small-btn">Close</button>
             </div>
         </div>
@@ -161,6 +187,7 @@
     </div>
 
     <script src="config.js"></script>
+    <script src="https://unpkg.com/diffparser"></script>
     <script src="app.js"></script>
 </body>
 </html>

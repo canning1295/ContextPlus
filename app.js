@@ -19,7 +19,26 @@ let llmProvider = null;
 let llmApiKey = null;
 let llmModel = null;
 let llmAsync = false;
+let dryRun = false;
+let betaMode = false;
 let repoTree = [];
+
+const TASK_POLL_INTERVAL = 60_000;   // 60 s
+const MAX_PATCH_LINES = 10_000;
+const MAX_PROMPT_TOKENS = 128_000;
+const MIN_LLM_INTERVAL = 5000; // 5 s
+const STATUS_ICONS = {
+    pending:'⏳',
+    error:'❌',
+    'open_pr':'🌿',
+    'open_pr (dry-run)':'🌿',
+    merged:'✅'
+};
+
+let tasksData = [];
+let currentPromptText = '';
+let currentBundle = null;
+let lastLlmTime = 0;
 
 // openDB hang fix history:
 // 1. Added fallback timeout to ensure init proceeds even if request events never fire.
@@ -29,13 +48,14 @@ function openDB() {
         let finished = false;
         const done = () => { if(!finished){ finished = true; resolve(); } };
         try {
-            const req = indexedDB.open('contextplus', 3);
+            const req = indexedDB.open('contextplus', 4);
             req.onupgradeneeded = e => {
                 const db = e.target.result;
                 if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
                 if(!db.objectStoreNames.contains('instructions')) db.createObjectStore('instructions', { keyPath: 'id', autoIncrement: true });
                 if(db.objectStoreNames.contains('descriptions')) db.deleteObjectStore('descriptions');
                 db.createObjectStore('descriptions', { keyPath: ['repo','branch','path'] });
+                if(!db.objectStoreNames.contains('tasks')) db.createObjectStore('tasks', { keyPath: 'id', autoIncrement: true });
             };
             req.onsuccess = e => {
                 db = e.target.result;
@@ -236,23 +256,49 @@ let instructionsData = [];
 let currentInstructionId = null;
 let currentDescPath = null;
 
+const DEFAULT_PRESETS = {
+    '-1': {
+        id: -1,
+        title: 'Code',
+        text: `SYSTEM:\nYou are an automated code-modification agent.\nReturn ONE unified git patch wrapped in \`\`\`patch … \`\`\`; no commentary.`
+    },
+    '-2': {
+        id: -2,
+        title: 'Ask',
+        text: `SYSTEM:\nYou are a knowledgeable development assistant.`
+    }
+};
+
 function loadInstructions(){
     if(!db){
         log('loadInstructions skipped, db not initialized; using localStorage');
         try {
             instructionsData = JSON.parse(localStorage.getItem('instructions') || '[]');
+            for(const key in DEFAULT_PRESETS){
+                if(!instructionsData.find(i=>i.id===Number(key))) instructionsData.push({...DEFAULT_PRESETS[key]});
+            }
+            localStorage.setItem('instructions', JSON.stringify(instructionsData));
         } catch(err) {
             instructionsData = [];
         }
         renderInstructions();
         return;
     }
-    const tx = db.transaction('instructions');
+    const tx = db.transaction('instructions', 'readwrite');
     const store = tx.objectStore('instructions');
     const req = store.getAll();
     req.onsuccess = () => {
         instructionsData = req.result || [];
-        localStorage.setItem('instructions', JSON.stringify(instructionsData));
+        let changed=false;
+        for(const key in DEFAULT_PRESETS){
+            if(!instructionsData.find(i=>i.id===Number(key))){
+                instructionsData.push({...DEFAULT_PRESETS[key]});
+                store.put(DEFAULT_PRESETS[key]);
+                changed=true;
+            }
+        }
+        if(changed) localStorage.setItem('instructions', JSON.stringify(instructionsData));
+        else localStorage.setItem('instructions', JSON.stringify(instructionsData));
         renderInstructions();
     };
 }
@@ -279,6 +325,115 @@ function renderInstructions(){
     updateOutputCards();
 }
 
+function loadTasks(){
+    if(!db){
+        try{
+            tasksData=JSON.parse(localStorage.getItem('tasks')||'[]');
+        }catch(err){ tasksData=[]; }
+        renderTasks();
+        return;
+    }
+    const store=db.transaction('tasks').objectStore('tasks');
+    const req=store.getAll();
+    req.onsuccess=()=>{ tasksData=req.result||[]; renderTasks(); };
+}
+
+function saveTask(task){
+    if(!db){
+        let arr=[];
+        try{ arr=JSON.parse(localStorage.getItem('tasks')||'[]'); }catch(err){}
+        const idx=arr.findIndex(t=>t.id===task.id);
+        if(idx!==-1) arr[idx]=task; else arr.push(task);
+        localStorage.setItem('tasks',JSON.stringify(arr));
+        return;
+    }
+    const store=db.transaction('tasks','readwrite').objectStore('tasks');
+    store.put(task);
+}
+
+function addTask(task){
+    tasksData.unshift(task);
+    saveTask(task);
+    renderTasks();
+}
+
+async function applyPatchLowLevel(task){
+    log('applyPatchLowLevel', {dryRun});
+    if(dryRun){
+        task.status = 'open_pr (dry-run)';
+        saveTask(task);
+        renderTasks();
+        return;
+    }
+    // TODO: implement GitHub commit and PR creation
+    task.status = 'open_pr';
+    saveTask(task);
+    renderTasks();
+}
+
+function parseModelOutput(text){
+    let title='';
+    let patch='';
+    try{
+        const header=text.match(/\{[\s\S]*?\}/);
+        if(header){
+            const obj=JSON.parse(header[0]);
+            title=obj.title||'';
+            text=text.slice(header.index+header[0].length);
+        }
+        const m=text.match(/```patch\n([\s\S]*?)\n```/);
+        if(m) patch=m[1].trim();
+    }catch(err){ log('parseModelOutput error',err); }
+    return {title, patch};
+}
+
+function renderTasks(){
+    const list=document.getElementById('task-list');
+    if(!list) return;
+    list.innerHTML='';
+    tasksData.sort((a,b)=>b.created-a.created).forEach(t=>{
+        const row=document.createElement('div');
+        row.className='task-row';
+        const title=document.createElement('div');
+        title.className='task-title';
+        title.textContent=t.title||'Pending';
+        const status=document.createElement('div');
+        status.className='task-status';
+        const icon=STATUS_ICONS[t.status]||'';
+        status.textContent=icon+' '+t.status;
+        row.appendChild(title);
+        row.appendChild(status);
+        if(t.patch){
+            const pre=document.createElement('pre');
+            pre.className='diff';
+            t.patch.split('\n').forEach(line=>{
+                const span=document.createElement('span');
+                if(line.startsWith('+')) span.className='diff-add';
+                else if(line.startsWith('-')) span.className='diff-del';
+                else if(line.startsWith('@@')) span.className='diff-hunk';
+                span.textContent=line;
+                pre.appendChild(span);
+                pre.appendChild(document.createTextNode('\n'));
+            });
+            row.appendChild(pre);
+            const apply=document.createElement('button');
+            apply.textContent='Apply';
+            apply.className='small-btn';
+            apply.disabled=t.status!=='pending';
+            apply.addEventListener('click',()=>applyPatchLowLevel(t));
+            row.appendChild(apply);
+        }
+        if(t.status==='error'){
+            const retry=document.createElement('button');
+            retry.textContent='Retry';
+            retry.className='small-btn retry-btn';
+            retry.addEventListener('click',()=>retryTask(t));
+            row.appendChild(retry);
+        }
+        list.appendChild(row);
+    });
+}
+
 // Instruction modal open bug fix history:
 // 1. Basic open with values populated.
 // 2. Ensured display is explicitly set so CSS doesn't override.
@@ -288,13 +443,16 @@ function openInstructionModal(id=null){
     const modal = document.getElementById('instruction-modal');
     const titleEl = document.getElementById('instruction-title');
     const textEl = document.getElementById('instruction-text');
+    const restoreBtn=document.getElementById('instruction-restore');
     if(id){
         const instr = instructionsData.find(i=>i.id===id);
         titleEl.value = instr ? instr.title : '';
         textEl.value = instr ? instr.text : '';
+        if(restoreBtn) restoreBtn.classList.toggle('hidden', !(id<0));
     } else {
         titleEl.value='';
         textEl.value='';
+        if(restoreBtn) restoreBtn.classList.add('hidden');
     }
     modal.style.display='flex';
     modal.classList.remove('hidden');
@@ -363,6 +521,15 @@ function deleteInstruction(){
         store.transaction.oncomplete=()=>{ loadInstructions(); closeInstructionModal(); };
     } else {
         closeInstructionModal();
+    }
+}
+
+function restoreInstructionDefault(){
+    if(currentInstructionId && currentInstructionId<0){
+        const preset=DEFAULT_PRESETS[String(currentInstructionId)];
+        if(!preset) return;
+        document.getElementById('instruction-title').value=preset.title;
+        document.getElementById('instruction-text').value=preset.text;
     }
 }
 
@@ -833,6 +1000,18 @@ async function updateOutputCards(){
         card.textContent=`File Descriptions - ${formatTokens(tokens)} tokens`;
         cards.push(card);
     }
+    const aiToggle=document.getElementById('ai-instructions-toggle');
+    const aiText=document.getElementById('ai-instructions').value.trim();
+    if(aiToggle && aiToggle.checked && aiText){
+        const tokens=approximateTokens(Math.ceil(aiText.length/4.7));
+        const card=document.createElement('div');
+        card.className='card';
+        card.draggable=true;
+        card.dataset.type='ai';
+        card.dataset.tokens=tokens;
+        card.textContent=`AI Request - ${formatTokens(tokens)} tokens`;
+        cards.push(card);
+    }
     cards.forEach(c=>container.appendChild(c));
     const dragHint=document.getElementById('drag-hint');
     if(cards.length>1){
@@ -844,6 +1023,7 @@ async function updateOutputCards(){
     }
     initDrag(container);
     updateTotalTokens();
+    updateGenerateButton();
     saveSelections();
 }
 
@@ -868,10 +1048,17 @@ function getDragAfterElement(container,y){
 }
 
 function updateTotalTokens(){
+    const total=getTotalTokens();
+    document.getElementById('total-tokens').textContent=`(${formatTokens(total)} tokens)`;
+}
+
+function getTotalTokens(){
     const container=document.getElementById('output-cards');
     let total=0;
-    container.querySelectorAll('.card').forEach(c=>{total+=Number(c.dataset.tokens)||0;});
-    document.getElementById('total-tokens').textContent=`(${formatTokens(total)} tokens)`;
+    if(container){
+        container.querySelectorAll('.card').forEach(c=>{ total+=Number(c.dataset.tokens)||0; });
+    }
+    return total;
 }
 
 function approximateTokens(count){
@@ -880,6 +1067,179 @@ function approximateTokens(count){
 
 function formatTokens(count){
     return `~${count.toLocaleString()}`;
+}
+
+function updateGenerateButton(){
+    const btn=document.getElementById('generate-btn');
+    if(!btn) return;
+    const container=document.getElementById('output-cards');
+    const hasCards=container && container.children.length>0;
+    const aiToggle=document.getElementById('ai-instructions-toggle');
+    const aiText=document.getElementById('ai-instructions').value.trim();
+    const aiOk=!aiToggle||!aiToggle.checked||!!aiText;
+    const total=getTotalTokens();
+    btn.disabled=!(hasCards && aiOk) || total>MAX_PROMPT_TOKENS;
+}
+
+function showPromptTab(name){
+    document.querySelectorAll('.prompt-tab').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.tab===name);
+    });
+    document.querySelectorAll('.prompt-pane').forEach(p=>p.classList.remove('active'));
+    const pane=document.getElementById(`prompt-${name}`);
+    if(pane) pane.classList.add('active');
+}
+
+function openPromptModal(promptText='', payload=''){
+    currentPromptText = promptText;
+    const modal=document.getElementById('prompt-modal');
+    document.getElementById('prompt-prompt').textContent=promptText;
+    document.getElementById('prompt-payload').textContent=payload;
+    showPromptTab('prompt');
+    modal.style.display='flex';
+    modal.classList.remove('hidden');
+}
+
+function closePromptModal(e){
+    if(e) e.stopPropagation();
+    const modal=document.getElementById('prompt-modal');
+    modal.classList.add('hidden');
+    modal.style.display='none';
+}
+
+async function handlePromptSend(){
+    log('handlePromptSend');
+    closePromptModal();
+    if(!llmApiKey){ openSettings(); return; }
+    if(Date.now()-lastLlmTime < MIN_LLM_INTERVAL){
+        showToast('Please wait before sending again','warning');
+        return;
+    }
+    const task={
+        title:'Pending',
+        prompt:currentPromptText,
+        patch:null,
+        branch:null,
+        prUrl:null,
+        status:'pending',
+        created:Date.now()
+    };
+    addTask(task);
+    const progress=showToast('Calling LLM...','info',0,40,200,'upper middle');
+    try{
+        const resp=await callLLM(currentPromptText);
+        const parsed=parseModelOutput(resp);
+        task.patch=parsed.patch||resp;
+        if(parsed.title) task.title=parsed.title;
+        if(task.patch && task.patch.split('\n').length>MAX_PATCH_LINES){
+            task.status='error';
+            task.patch=null;
+            showToast('Diff too large','error');
+        }
+        saveTask(task);
+        lastLlmTime=Date.now();
+    }catch(err){
+        task.status='error';
+        saveTask(task);
+        lastLlmTime=Date.now();
+    }
+    if(progress) progress.remove();
+    renderTasks();
+}
+
+async function retryTask(task){
+    if(task.status!=='error') return;
+    if(Date.now()-lastLlmTime < MIN_LLM_INTERVAL){
+        showToast('Please wait before sending again','warning');
+        return;
+    }
+    task.status='pending';
+    saveTask(task);
+    renderTasks();
+    const progress=showToast('Calling LLM...','info',0,40,200,'upper middle');
+    try{
+        const resp=await callLLM(task.prompt);
+        const parsed=parseModelOutput(resp);
+        task.patch=parsed.patch||resp;
+        if(parsed.title) task.title=parsed.title;
+        if(task.patch && task.patch.split('\n').length>MAX_PATCH_LINES){
+            task.status='error';
+            task.patch=null;
+            showToast('Diff too large','error');
+        }
+        saveTask(task);
+        lastLlmTime=Date.now();
+    }catch(err){
+        task.status='error';
+        saveTask(task);
+        lastLlmTime=Date.now();
+    }
+    if(progress) progress.remove();
+    renderTasks();
+}
+
+async function buildContextBundle(){
+    const bundle={files:[],instructions:[],aiRequest:null,descriptions:[]};
+    const container=document.getElementById('output-cards');
+    const lineNumbers=document.getElementById('include-line-numbers').checked;
+    const aiToggle=document.getElementById('ai-instructions-toggle');
+    const aiText=document.getElementById('ai-instructions').value.trim();
+    if(aiToggle && aiToggle.checked && aiText) bundle.aiRequest=aiText;
+    for(const card of container.children){
+        if(card.dataset.type==='files'){
+            const paths=JSON.parse(card.dataset.paths||'[]');
+            for(const p of paths){
+                const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
+                const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
+                let text=await resp.text();
+                if(lineNumbers) text=addLineNumbers(text);
+                bundle.files.push({path:p,text});
+            }
+        }else if(card.dataset.type==='instruction'){
+            const instr=instructionsData.find(i=>i.id==card.dataset.id);
+            if(instr) bundle.instructions.push(instr.text);
+        }else if(card.dataset.type==='descriptions'){
+            const descChecks=document.querySelectorAll('#desc-tree input[type=checkbox]:checked');
+            for(const cb of descChecks){
+                const key=[currentRepo.full_name,currentBranch,cb.dataset.path];
+                const rec=await idbGet(key,'descriptions');
+                if(rec && rec.text) bundle.descriptions.push(rec.text);
+            }
+        }
+    }
+    return bundle;
+}
+
+function buildPrompt(bundle, mode='code'){
+    const lines=[];
+    if(mode==='code'){
+        lines.push('SYSTEM:');
+        lines.push('You are an automated code-modification agent.');
+        lines.push('Return ONE unified git patch wrapped in ```patch … ```; no commentary.');
+        lines.push('');
+    }else{
+        lines.push('SYSTEM:');
+        lines.push('You are a knowledgeable development assistant.');
+        lines.push('');
+    }
+    lines.push('USER:');
+    lines.push('Repository root is / (ContextPlus).');
+    lines.push(`Current branch: ${currentBranch}.`);
+    lines.push('Please implement the following change(s):');
+    lines.push('');
+    lines.push(bundle.aiRequest||'None');
+    lines.push('');
+    bundle.instructions.forEach((t,i)=>{ lines.push(`${i+1}. ${t}`); });
+    lines.push('');
+    lines.push('Context files follow.');
+    bundle.files.forEach(f=>{
+        lines.push(`>>> ${f.path}`);
+        lines.push(f.text);
+        lines.push('<<< END FILE');
+    });
+    lines.push('...');
+    if(mode==='code') lines.push('Remember: output only ONE patch block.');
+    return lines.join('\n');
 }
 
 async function saveSelections(){
@@ -1036,31 +1396,19 @@ async function copySelected(){
         showToast('Nothing selected','warning');
         return;
     }
-    const progressToast=showToast('Copying...','info',0,40,200,'upper middle');
-    const parts=[];
-    for(const card of container.children){
-        if(card.dataset.type==='files'){
-            const paths=JSON.parse(card.dataset.paths||'[]');
-            const lineNumbers=document.getElementById('include-line-numbers').checked;
-            for(const p of paths){
-                const url=`https://api.github.com/repos/${currentRepo.full_name}/contents/${p}?ref=${currentBranch}`;
-                const resp=await fetch(url,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
-                let text=await resp.text();
-                if(lineNumbers) text=addLineNumbers(text);
-                parts.push(`// ${p}\n`+text);
-            }
-        }else if(card.dataset.type==='instruction'){
-            const instr=instructionsData.find(i=>i.id==card.dataset.id);
-            if(instr) parts.push(instr.text);
-        }else if(card.dataset.type==='descriptions'){
-            const descChecks=document.querySelectorAll('#desc-tree input[type=checkbox]:checked');
-            for(const cb of descChecks){
-                const key=[currentRepo.full_name, currentBranch, cb.dataset.path];
-                const rec=await idbGet(key,'descriptions');
-                if(rec && rec.text) parts.push(rec.text);
-            }
-        }
+    const aiToggle=document.getElementById('ai-instructions-toggle');
+    const aiText=document.getElementById('ai-instructions').value.trim();
+    if(aiToggle && aiToggle.checked && !aiText){
+        showToast('Enter AI Instructions','warning');
+        return;
     }
+    const progressToast=showToast('Copying...','info',0,40,200,'upper middle');
+    const bundle=await buildContextBundle();
+    const parts=[];
+    bundle.files.forEach(f=>parts.push(`// ${f.path}\n${f.text}`));
+    bundle.instructions.forEach(t=>parts.push(t));
+    bundle.descriptions.forEach(d=>parts.push(d));
+    if(bundle.aiRequest) parts.push(bundle.aiRequest);
     const clipText=parts.join('\n\n');
     const tokens=approximateTokens(Math.ceil(clipText.length/4.7));
     try {
@@ -1075,6 +1423,21 @@ async function copySelected(){
     }
 }
 
+function generateUpdates(){
+    log('generateUpdates click');
+    buildContextBundle().then(bundle=>{
+        const prompt=buildPrompt(bundle,'code');
+        const tokens=approximateTokens(Math.ceil(prompt.length/4.7));
+        if(tokens>MAX_PROMPT_TOKENS){
+            showToast('Prompt exceeds max size','warning');
+            return;
+        }
+        const payload=JSON.stringify(bundle,null,2);
+        currentBundle = bundle;
+        openPromptModal(prompt, payload);
+    });
+}
+
 async function init(){
     log('init start');
     await openDB();
@@ -1085,6 +1448,8 @@ async function init(){
     llmApiKey = await idbGet('llm_api_key');
     llmAsync = await idbGet('llm_async');
     llmModel = await idbGet('llm_model');
+    dryRun = await idbGet('dry_run');
+    betaMode = await idbGet('beta_mode');
     document.getElementById('client-id-input').value = clientId || '';
     document.getElementById('client-secret-input').value = clientSecret || '';
     document.getElementById('llm-provider-select').value = llmProvider || 'openai';
@@ -1092,9 +1457,11 @@ async function init(){
     document.getElementById('llm-async').checked = !!llmAsync;
     document.getElementById('llm-model-select').value = llmModel || '';
     updateModelList();
+    document.getElementById('dry-run-toggle').checked = !!dryRun;
+    document.getElementById('beta-toggle').checked = !!betaMode;
     log('init retrieved creds', {accessToken, clientId, clientSecret});
     // ensure modals start hidden
-    ['settings-modal','modal-overlay','instruction-modal','description-modal'].forEach(id=>{
+    ['settings-modal','modal-overlay','instruction-modal','description-modal','prompt-modal'].forEach(id=>{
         const el=document.getElementById(id);
         if(el){
             el.classList.add('hidden');
@@ -1128,6 +1495,8 @@ async function init(){
     document.getElementById('modal-close').addEventListener('click', () => { log('modal-close click'); confirmRepoBranch(); });
     document.getElementById('repo-select').addEventListener('change', loadBranches);
     document.getElementById('copy-btn').addEventListener('click', copySelected);
+    const genBtn=document.getElementById('generate-btn');
+    if(genBtn) genBtn.addEventListener('click', generateUpdates);
     document.getElementById('select-all-btn').addEventListener('click', selectAll);
     document.getElementById('deselect-all-btn').addEventListener('click', deselectAll);
     const dsa=document.getElementById('desc-select-all-btn');
@@ -1136,25 +1505,52 @@ async function init(){
     if(dda) dda.addEventListener('click', deselectAllDesc);
     document.getElementById('file-tree').addEventListener('change', handleFolderToggle);
     document.getElementById('theme-select').addEventListener('change', handleThemeChange);
+    document.getElementById('dry-run-toggle').addEventListener('change', e=>{
+        dryRun = e.target.checked;
+        idbSet('dry_run', dryRun);
+    });
+    document.getElementById('beta-toggle').addEventListener('change', e=>{
+        betaMode = e.target.checked;
+        idbSet('beta_mode', betaMode);
+    });
     document.getElementById('settings-modal').addEventListener('click', (e) => { log('settings-modal background click'); closeSettings(e); });
     document.getElementById('settings-content').addEventListener('click', e=>e.stopPropagation());
     document.getElementById('create-instruction').addEventListener('click', () => { log('create-instruction click'); openInstructionModal(); });
     document.getElementById('instruction-close').addEventListener('click', (e) => { log('instruction-close click'); closeInstructionModal(e); });
     document.getElementById('instruction-save').addEventListener('click', saveInstruction);
     document.getElementById('instruction-delete').addEventListener('click', deleteInstruction);
+    const restoreBtn=document.getElementById('instruction-restore');
+    if(restoreBtn) restoreBtn.addEventListener('click', restoreInstructionDefault);
     document.getElementById('instruction-modal').addEventListener('click', (e) => { log('instruction-modal background click'); closeInstructionModal(e); });
     document.getElementById('instruction-content').addEventListener('click', e=>e.stopPropagation());
     document.getElementById('description-close').addEventListener('click', e=>{ log('description-close click'); closeDescriptionModal(e); });
     document.getElementById('description-save').addEventListener('click', saveDescription);
     document.getElementById('description-modal').addEventListener('click', e=>{ log('description-modal background click'); closeDescriptionModal(e); });
     document.getElementById('description-content').addEventListener('click', e=>e.stopPropagation());
+    document.getElementById('prompt-cancel').addEventListener('click', e=>{ log('prompt-cancel click'); closePromptModal(e); });
+    document.getElementById('prompt-send').addEventListener('click', ()=>{ log('prompt-send click'); handlePromptSend(); });
+    document.getElementById('prompt-modal').addEventListener('click', e=>{ log('prompt-modal background click'); closePromptModal(e); });
+    document.getElementById('prompt-content').addEventListener('click', e=>e.stopPropagation());
+    document.querySelectorAll('.prompt-tab').forEach(btn=>btn.addEventListener('click', ()=>showPromptTab(btn.dataset.tab)));
     document.querySelectorAll('.settings-tab').forEach(btn=>btn.addEventListener('click',()=>showTab(btn.dataset.tab)));
     document.getElementById('llm-provider-select').addEventListener('change', updateModelList);
     document.getElementById('llm-api-key').addEventListener('change', updateModelList);
     document.getElementById('llm-save-btn').addEventListener('click', saveLLMSettings);
     document.getElementById('generate-desc-btn').addEventListener('click', generateDescriptions);
+    const aiTextEl=document.getElementById('ai-instructions');
+    const aiToggleEl=document.getElementById('ai-instructions-toggle');
+    if(aiTextEl) aiTextEl.addEventListener('input', updateOutputCards);
+    if(aiToggleEl) aiToggleEl.addEventListener('change',()=>{
+        if(aiToggleEl.checked && !aiTextEl.value.trim()){
+            showToast('Enter AI Instructions','warning');
+        }
+        updateOutputCards();
+    });
     loadInstructions();
+    loadTasks();
     log('init listeners attached');
+    updateGenerateButton();
+    setInterval(renderTasks, TASK_POLL_INTERVAL);
     const overlay = document.getElementById('loading-overlay');
     if (overlay) overlay.style.display = 'none';
 }
