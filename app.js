@@ -907,6 +907,31 @@ function updateGenerateButton(){
     btn.disabled=!(hasCards && aiOk);
 }
 
+function showPromptTab(name){
+    document.querySelectorAll('.prompt-tab').forEach(btn=>{
+        btn.classList.toggle('active', btn.dataset.tab===name);
+    });
+    document.querySelectorAll('.prompt-pane').forEach(p=>p.classList.remove('active'));
+    const pane=document.getElementById(`prompt-${name}`);
+    if(pane) pane.classList.add('active');
+}
+
+function openPromptModal(promptText='', payload=''){
+    const modal=document.getElementById('prompt-modal');
+    document.getElementById('prompt-prompt').textContent=promptText;
+    document.getElementById('prompt-payload').textContent=payload;
+    showPromptTab('prompt');
+    modal.style.display='flex';
+    modal.classList.remove('hidden');
+}
+
+function closePromptModal(e){
+    if(e) e.stopPropagation();
+    const modal=document.getElementById('prompt-modal');
+    modal.classList.add('hidden');
+    modal.style.display='none';
+}
+
 async function buildContextBundle(){
     const bundle={files:[],instructions:[],aiRequest:null,descriptions:[]};
     const container=document.getElementById('output-cards');
@@ -1122,7 +1147,10 @@ async function copySelected(){
 
 function generateUpdates(){
     log('generateUpdates click');
-    showToast('Generate Updates not implemented','info');
+    buildContextBundle().then(bundle=>{
+        const payload=JSON.stringify(bundle,null,2);
+        openPromptModal('Prompt preview not implemented', payload);
+    });
 }
 
 async function init(){
@@ -1144,7 +1172,7 @@ async function init(){
     updateModelList();
     log('init retrieved creds', {accessToken, clientId, clientSecret});
     // ensure modals start hidden
-    ['settings-modal','modal-overlay','instruction-modal','description-modal'].forEach(id=>{
+    ['settings-modal','modal-overlay','instruction-modal','description-modal','prompt-modal'].forEach(id=>{
         const el=document.getElementById(id);
         if(el){
             el.classList.add('hidden');
@@ -1200,6 +1228,11 @@ async function init(){
     document.getElementById('description-save').addEventListener('click', saveDescription);
     document.getElementById('description-modal').addEventListener('click', e=>{ log('description-modal background click'); closeDescriptionModal(e); });
     document.getElementById('description-content').addEventListener('click', e=>e.stopPropagation());
+    document.getElementById('prompt-cancel').addEventListener('click', e=>{ log('prompt-cancel click'); closePromptModal(e); });
+    document.getElementById('prompt-send').addEventListener('click', ()=>{ log('prompt-send click'); showToast('Not implemented','info'); });
+    document.getElementById('prompt-modal').addEventListener('click', e=>{ log('prompt-modal background click'); closePromptModal(e); });
+    document.getElementById('prompt-content').addEventListener('click', e=>e.stopPropagation());
+    document.querySelectorAll('.prompt-tab').forEach(btn=>btn.addEventListener('click', ()=>showPromptTab(btn.dataset.tab)));
     document.querySelectorAll('.settings-tab').forEach(btn=>btn.addEventListener('click',()=>showTab(btn.dataset.tab)));
     document.getElementById('llm-provider-select').addEventListener('change', updateModelList);
     document.getElementById('llm-api-key').addEventListener('change', updateModelList);

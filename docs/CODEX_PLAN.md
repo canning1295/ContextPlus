@@ -13,7 +13,7 @@ Use the following list to track completion status for each task.
 - [x] **Task 1** – AI Instructions UI & validation
 - [x] **Task 2** – Generate Updates button
 - [x] **Task 3** – `buildContextBundle()` helper
-- [ ] **Task 4** – Prompt Preview modal
+- [x] **Task 4** – Prompt Preview modal
 - [ ] **Task 5** – Seed "Code" & "Ask" presets
 - [ ] **Task 6** – `buildPrompt()`
 - [ ] **Task 7** – LLM call & Task persistence
