@@ -26,8 +26,8 @@ Use the following list to track completion status for each task.
 - [x] **Task 14** – Toggle-controlled AI Request field
 - [x] **Task 15** – AI Output section headers
 - [x] **Task 16** – "<500 tokens" display
-- [ ] **Task 17** – Refined token estimator
-- [ ] **Task 18** – Task history modal & PR workflow
+- [x] **Task 17** – Refined token estimator
+- [x] **Task 18** – Task history modal & PR workflow
 
 ---
 
