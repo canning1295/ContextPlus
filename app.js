@@ -471,31 +471,19 @@ function renderTasks(){
         const title=document.createElement('div');
         title.className='task-title';
         title.textContent=t.title||'Pending';
+        title.addEventListener('click',()=>openTaskModal(t));
         const status=document.createElement('div');
         status.className='task-status';
         const icon=STATUS_ICONS[t.status]||'';
         status.textContent=icon+' '+t.status;
         row.appendChild(title);
         row.appendChild(status);
-        if(t.patch){
-            const pre=document.createElement('pre');
-            pre.className='diff';
-            t.patch.split('\n').forEach(line=>{
-                const span=document.createElement('span');
-                if(line.startsWith('+')) span.className='diff-add';
-                else if(line.startsWith('-')) span.className='diff-del';
-                else if(line.startsWith('@@')) span.className='diff-hunk';
-                span.textContent=line;
-                pre.appendChild(span);
-                pre.appendChild(document.createTextNode('\n'));
-            });
-            row.appendChild(pre);
-            const apply=document.createElement('button');
-            apply.textContent='Apply';
-            apply.className='small-btn';
-            apply.disabled=t.status!=='pending';
-            apply.addEventListener('click',()=>applyPatchLowLevel(t));
-            row.appendChild(apply);
+        if(t.prUrl){
+            const a=document.createElement('a');
+            a.href=t.prUrl;
+            a.target='_blank';
+            a.textContent='View PR';
+            row.appendChild(a);
         }
         if(t.status==='error'){
             const retry=document.createElement('button');
@@ -548,6 +536,48 @@ function closeHistoryModal(){
     const modal=document.getElementById('history-modal');
     modal.classList.add('hidden');
     modal.style.display='none';
+}
+
+let currentTask=null;
+
+function openTaskModal(task){
+    currentTask=task;
+    const modal=document.getElementById('task-modal');
+    const titleEl=document.getElementById('task-modal-title');
+    const diffEl=document.getElementById('task-modal-diff');
+    const prBtn=document.getElementById('task-pr-btn');
+    titleEl.textContent=task.title||'Update';
+    diffEl.innerHTML='';
+    if(task.patch){
+        task.patch.split('\n').forEach(line=>{
+            const span=document.createElement('span');
+            if(line.startsWith('+')) span.className='diff-add';
+            else if(line.startsWith('-')) span.className='diff-del';
+            else if(line.startsWith('@@')) span.className='diff-hunk';
+            span.textContent=line;
+            diffEl.appendChild(span);
+            diffEl.appendChild(document.createTextNode('\n'));
+        });
+    }
+    if(task.prUrl){
+        prBtn.textContent='View Pull Request';
+        prBtn.disabled=false;
+        prBtn.onclick=()=>window.open(task.prUrl,'_blank');
+    }else{
+        prBtn.textContent='Create Pull Request';
+        prBtn.disabled=!task.patch || task.status!=='pending';
+        prBtn.onclick=async ()=>{await applyPatchLowLevel(task); openTaskModal(task);};
+    }
+    modal.classList.remove('hidden');
+    modal.style.display='flex';
+}
+
+function closeTaskModal(e){
+    if(e) e.stopPropagation();
+    const modal=document.getElementById('task-modal');
+    modal.classList.add('hidden');
+    modal.style.display='none';
+    currentTask=null;
 }
 
 // Instruction modal open bug fix history:
@@ -1697,6 +1727,12 @@ async function init(){
     if(histModal) histModal.addEventListener('click', e=>{log('history-modal background click'); closeHistoryModal(e);});
     const histContent=document.getElementById('history-content');
     if(histContent) histContent.addEventListener('click', e=>e.stopPropagation());
+    const taskClose=document.getElementById('task-modal-close');
+    if(taskClose) taskClose.addEventListener('click', e=>{log('task-modal-close click'); closeTaskModal(e);});
+    const taskModal=document.getElementById('task-modal');
+    if(taskModal) taskModal.addEventListener('click', e=>{log('task-modal background click'); closeTaskModal(e);});
+    const taskContent=document.getElementById('task-content');
+    if(taskContent) taskContent.addEventListener('click', e=>e.stopPropagation());
     loadInstructions();
     loadTasks();
     log('init listeners attached');
