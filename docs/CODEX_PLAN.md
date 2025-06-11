@@ -11,7 +11,7 @@ Use the following list to track completion status for each task.
 
 - [x] **Task 0** – IDB schema bump → `tasks` store
 - [x] **Task 1** – AI Instructions UI & validation
-- [ ] **Task 2** – Generate Updates button
+- [x] **Task 2** – Generate Updates button
 - [ ] **Task 3** – `buildContextBundle()` helper
 - [ ] **Task 4** – Prompt Preview modal
 - [ ] **Task 5** – Seed "Code" & "Ask" presets

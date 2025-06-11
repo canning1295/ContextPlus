@@ -857,6 +857,7 @@ async function updateOutputCards(){
     }
     initDrag(container);
     updateTotalTokens();
+    updateGenerateButton();
     saveSelections();
 }
 
@@ -893,6 +894,17 @@ function approximateTokens(count){
 
 function formatTokens(count){
     return `~${count.toLocaleString()}`;
+}
+
+function updateGenerateButton(){
+    const btn=document.getElementById('generate-btn');
+    if(!btn) return;
+    const container=document.getElementById('output-cards');
+    const hasCards=container && container.children.length>0;
+    const aiToggle=document.getElementById('ai-instructions-toggle');
+    const aiText=document.getElementById('ai-instructions').value.trim();
+    const aiOk=!aiToggle||!aiToggle.checked||!!aiText;
+    btn.disabled=!(hasCards && aiOk);
 }
 
 async function saveSelections(){
@@ -1096,6 +1108,11 @@ async function copySelected(){
     }
 }
 
+function generateUpdates(){
+    log('generateUpdates click');
+    showToast('Generate Updates not implemented','info');
+}
+
 async function init(){
     log('init start');
     await openDB();
@@ -1149,6 +1166,8 @@ async function init(){
     document.getElementById('modal-close').addEventListener('click', () => { log('modal-close click'); confirmRepoBranch(); });
     document.getElementById('repo-select').addEventListener('change', loadBranches);
     document.getElementById('copy-btn').addEventListener('click', copySelected);
+    const genBtn=document.getElementById('generate-btn');
+    if(genBtn) genBtn.addEventListener('click', generateUpdates);
     document.getElementById('select-all-btn').addEventListener('click', selectAll);
     document.getElementById('deselect-all-btn').addEventListener('click', deselectAll);
     const dsa=document.getElementById('desc-select-all-btn');
@@ -1185,6 +1204,7 @@ async function init(){
     });
     loadInstructions();
     log('init listeners attached');
+    updateGenerateButton();
     const overlay = document.getElementById('loading-overlay');
     if (overlay) overlay.style.display = 'none';
 }

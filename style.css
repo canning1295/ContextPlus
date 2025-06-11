@@ -41,6 +41,7 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .desc-status{ margin-left:4px; }
 .instruction-toggle{ margin-right:4px; }
 #copy-btn { margin-top:10px; width:600px; }
+#generate-btn { margin-top:10px; width:600px; }
 #instruction-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 
 #instruction-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:400px; }
