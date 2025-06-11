@@ -834,6 +834,18 @@ async function updateOutputCards(){
         card.textContent=`File Descriptions - ${formatTokens(tokens)} tokens`;
         cards.push(card);
     }
+    const aiToggle=document.getElementById('ai-instructions-toggle');
+    const aiText=document.getElementById('ai-instructions').value.trim();
+    if(aiToggle && aiToggle.checked && aiText){
+        const tokens=approximateTokens(Math.ceil(aiText.length/4.7));
+        const card=document.createElement('div');
+        card.className='card';
+        card.draggable=true;
+        card.dataset.type='ai';
+        card.dataset.tokens=tokens;
+        card.textContent=`AI Request - ${formatTokens(tokens)} tokens`;
+        cards.push(card);
+    }
     cards.forEach(c=>container.appendChild(c));
     const dragHint=document.getElementById('drag-hint');
     if(cards.length>1){
@@ -1037,6 +1049,12 @@ async function copySelected(){
         showToast('Nothing selected','warning');
         return;
     }
+    const aiToggle=document.getElementById('ai-instructions-toggle');
+    const aiText=document.getElementById('ai-instructions').value.trim();
+    if(aiToggle && aiToggle.checked && !aiText){
+        showToast('Enter AI Instructions','warning');
+        return;
+    }
     const progressToast=showToast('Copying...','info',0,40,200,'upper middle');
     const parts=[];
     for(const card of container.children){
@@ -1060,6 +1078,8 @@ async function copySelected(){
                 const rec=await idbGet(key,'descriptions');
                 if(rec && rec.text) parts.push(rec.text);
             }
+        }else if(card.dataset.type==='ai'){
+            parts.push(aiText);
         }
     }
     const clipText=parts.join('\n\n');
@@ -1154,6 +1174,15 @@ async function init(){
     document.getElementById('llm-api-key').addEventListener('change', updateModelList);
     document.getElementById('llm-save-btn').addEventListener('click', saveLLMSettings);
     document.getElementById('generate-desc-btn').addEventListener('click', generateDescriptions);
+    const aiTextEl=document.getElementById('ai-instructions');
+    const aiToggleEl=document.getElementById('ai-instructions-toggle');
+    if(aiTextEl) aiTextEl.addEventListener('input', updateOutputCards);
+    if(aiToggleEl) aiToggleEl.addEventListener('change',()=>{
+        if(aiToggleEl.checked && !aiTextEl.value.trim()){
+            showToast('Enter AI Instructions','warning');
+        }
+        updateOutputCards();
+    });
     loadInstructions();
     log('init listeners attached');
     const overlay = document.getElementById('loading-overlay');
