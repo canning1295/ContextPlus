@@ -26,6 +26,7 @@ let repoTree = [];
 const TASK_POLL_INTERVAL = 60_000;   // 60 s
 const MAX_PATCH_LINES = 10_000;
 const MAX_PROMPT_TOKENS = 128_000;
+const MIN_LLM_INTERVAL = 5000; // 5 s
 const STATUS_ICONS = {
     pending:'⏳',
     error:'❌',
@@ -37,6 +38,7 @@ const STATUS_ICONS = {
 let tasksData = [];
 let currentPromptText = '';
 let currentBundle = null;
+let lastLlmTime = 0;
 
 // openDB hang fix history:
 // 1. Added fallback timeout to ensure init proceeds even if request events never fire.
@@ -420,6 +422,13 @@ function renderTasks(){
             apply.disabled=t.status!=='pending';
             apply.addEventListener('click',()=>applyPatchLowLevel(t));
             row.appendChild(apply);
+        }
+        if(t.status==='error'){
+            const retry=document.createElement('button');
+            retry.textContent='Retry';
+            retry.className='small-btn retry-btn';
+            retry.addEventListener('click',()=>retryTask(t));
+            row.appendChild(retry);
         }
         list.appendChild(row);
     });
@@ -1039,10 +1048,17 @@ function getDragAfterElement(container,y){
 }
 
 function updateTotalTokens(){
+    const total=getTotalTokens();
+    document.getElementById('total-tokens').textContent=`(${formatTokens(total)} tokens)`;
+}
+
+function getTotalTokens(){
     const container=document.getElementById('output-cards');
     let total=0;
-    container.querySelectorAll('.card').forEach(c=>{total+=Number(c.dataset.tokens)||0;});
-    document.getElementById('total-tokens').textContent=`(${formatTokens(total)} tokens)`;
+    if(container){
+        container.querySelectorAll('.card').forEach(c=>{ total+=Number(c.dataset.tokens)||0; });
+    }
+    return total;
 }
 
 function approximateTokens(count){
@@ -1061,7 +1077,8 @@ function updateGenerateButton(){
     const aiToggle=document.getElementById('ai-instructions-toggle');
     const aiText=document.getElementById('ai-instructions').value.trim();
     const aiOk=!aiToggle||!aiToggle.checked||!!aiText;
-    btn.disabled=!(hasCards && aiOk);
+    const total=getTotalTokens();
+    btn.disabled=!(hasCards && aiOk) || total>MAX_PROMPT_TOKENS;
 }
 
 function showPromptTab(name){
@@ -1094,6 +1111,10 @@ async function handlePromptSend(){
     log('handlePromptSend');
     closePromptModal();
     if(!llmApiKey){ openSettings(); return; }
+    if(Date.now()-lastLlmTime < MIN_LLM_INTERVAL){
+        showToast('Please wait before sending again','warning');
+        return;
+    }
     const task={
         title:'Pending',
         prompt:currentPromptText,
@@ -1110,10 +1131,48 @@ async function handlePromptSend(){
         const parsed=parseModelOutput(resp);
         task.patch=parsed.patch||resp;
         if(parsed.title) task.title=parsed.title;
+        if(task.patch && task.patch.split('\n').length>MAX_PATCH_LINES){
+            task.status='error';
+            task.patch=null;
+            showToast('Diff too large','error');
+        }
         saveTask(task);
+        lastLlmTime=Date.now();
     }catch(err){
         task.status='error';
         saveTask(task);
+        lastLlmTime=Date.now();
+    }
+    if(progress) progress.remove();
+    renderTasks();
+}
+
+async function retryTask(task){
+    if(task.status!=='error') return;
+    if(Date.now()-lastLlmTime < MIN_LLM_INTERVAL){
+        showToast('Please wait before sending again','warning');
+        return;
+    }
+    task.status='pending';
+    saveTask(task);
+    renderTasks();
+    const progress=showToast('Calling LLM...','info',0,40,200,'upper middle');
+    try{
+        const resp=await callLLM(task.prompt);
+        const parsed=parseModelOutput(resp);
+        task.patch=parsed.patch||resp;
+        if(parsed.title) task.title=parsed.title;
+        if(task.patch && task.patch.split('\n').length>MAX_PATCH_LINES){
+            task.status='error';
+            task.patch=null;
+            showToast('Diff too large','error');
+        }
+        saveTask(task);
+        lastLlmTime=Date.now();
+    }catch(err){
+        task.status='error';
+        saveTask(task);
+        lastLlmTime=Date.now();
     }
     if(progress) progress.remove();
     renderTasks();
@@ -1368,6 +1427,11 @@ function generateUpdates(){
     log('generateUpdates click');
     buildContextBundle().then(bundle=>{
         const prompt=buildPrompt(bundle,'code');
+        const tokens=approximateTokens(Math.ceil(prompt.length/4.7));
+        if(tokens>MAX_PROMPT_TOKENS){
+            showToast('Prompt exceeds max size','warning');
+            return;
+        }
         const payload=JSON.stringify(bundle,null,2);
         currentBundle = bundle;
         openPromptModal(prompt, payload);
