@@ -18,9 +18,9 @@ Use the following list to track completion status for each task.
 - [x] **Task 6** – `buildPrompt()`
 - [x] **Task 7** – LLM call & Task persistence
 - [x] **Task 8** – Parse model output & diff UI
-- [ ] **Task 9** – `applyPatchLowLevel()` plumbing
-- [ ] **Task 10** – Task list polling & icons
-- [ ] **Task 11** – Settings toggle: Dry-run / Beta
+- [x] **Task 9** – `applyPatchLowLevel()` plumbing
+- [x] **Task 10** – Task list polling & icons
+- [x] **Task 11** – Settings toggle: Dry-run / Beta
 - [ ] **Task 12** – Polish & edge cases
 
 ---
