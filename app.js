@@ -361,14 +361,45 @@ async function applyPatchLowLevel(task){
     log('applyPatchLowLevel', {dryRun});
     if(dryRun){
         task.status = 'open_pr (dry-run)';
+        task.prUrl=`https://github.com/${currentRepo.full_name}`;
         saveTask(task);
         renderTasks();
         return;
     }
-    // TODO: implement GitHub commit and PR creation
-    task.status = 'open_pr';
-    saveTask(task);
-    renderTasks();
+    if(!task.patch) return;
+    try{
+        const ownerRepo=currentRepo.full_name;
+        const refResp=await fetch(`https://api.github.com/repos/${ownerRepo}/git/ref/heads/${currentBranch}`,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'}});
+        const refData=await refResp.json();
+        const baseSha=refData.object.sha;
+        const ts=new Date().toISOString().replace(/[-:]/g,'').slice(0,13).replace('T','');
+        const slug=(task.title||'update').toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,20);
+        const branch=`ai/${ts}-${slug}`;
+        task.branch=branch;
+        await fetch(`https://api.github.com/repos/${ownerRepo}/git/refs`,{method:'POST',headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'},body:JSON.stringify({ref:`refs/heads/${branch}`,sha:baseSha})});
+        const files=parseDiff(task.patch);
+        for(const f of files){
+            const path=f.to||f.from;
+            const infoResp=await fetch(`https://api.github.com/repos/${ownerRepo}/contents/${path}?ref=${branch}`,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'}});
+            const info=await infoResp.json();
+            const fileResp=await fetch(`https://api.github.com/repos/${ownerRepo}/contents/${path}?ref=${branch}`,{headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github.raw'}});
+            let text=await fileResp.text();
+            const newText=applyPatchToText(text,f);
+            const content=btoa(unescape(encodeURIComponent(newText)));
+            await fetch(`https://api.github.com/repos/${ownerRepo}/contents/${path}`,{method:'PUT',headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'},body:JSON.stringify({message:task.title||'Update',content,sha:info.sha,branch})});
+        }
+        const prResp=await fetch(`https://api.github.com/repos/${ownerRepo}/pulls`,{method:'POST',headers:{Authorization:`token ${accessToken}`,Accept:'application/vnd.github+json'},body:JSON.stringify({title:task.title||'Update',head:branch,base:currentBranch})});
+        const prData=await prResp.json();
+        task.prUrl=prData.html_url;
+        task.status='open_pr';
+        saveTask(task);
+        renderTasks();
+    }catch(err){
+        log('applyPatchLowLevel error',err);
+        task.status='error';
+        saveTask(task);
+        renderTasks();
+    }
 }
 
 function parseModelOutput(text){
@@ -385,6 +416,49 @@ function parseModelOutput(text){
         if(m) patch=m[1].trim();
     }catch(err){ log('parseModelOutput error',err); }
     return {title, patch};
+}
+
+function applyPatchToText(original, filePatch){
+    let lines=original.split('\n');
+    filePatch.chunks.forEach(chunk=>{
+        let idx=chunk.newStart-1;
+        chunk.changes.forEach(ch=>{
+            if(ch.add){
+                lines.splice(idx,0,ch.content.slice(1));
+                idx++;
+            }else if(ch.del){
+                lines.splice(idx,1);
+            }else{
+                idx++;
+            }
+        });
+    });
+    return lines.join('\n');
+}
+
+function parseDiff(patch){
+    const files=[];
+    const lines=patch.split('\n');
+    let file=null;
+    lines.forEach(line=>{
+        if(line.startsWith('diff --git')){
+            if(file) files.push(file);
+            const parts=line.split(' b/');
+            const path=parts[1]||'';
+            file={path, chunks:[]};
+        }else if(file && line.startsWith('@@')){
+            const m=line.match(/\+(\d+)/);
+            const start=m?Number(m[1]):0;
+            file.chunks.push({newStart:start, changes:[]});
+        }else if(file && file.chunks.length){
+            const chunk=file.chunks[file.chunks.length-1];
+            if(line.startsWith('+')) chunk.changes.push({add:true,content:line});
+            else if(line.startsWith('-')) chunk.changes.push({del:true,content:line});
+            else chunk.changes.push({normal:true,content:line});
+        }
+    });
+    if(file) files.push(file);
+    return files;
 }
 
 function renderTasks(){
@@ -432,6 +506,48 @@ function renderTasks(){
         }
         list.appendChild(row);
     });
+}
+
+function openHistoryModal(){
+    const modal=document.getElementById('history-modal');
+    const list=document.getElementById('history-list');
+    list.innerHTML='';
+    tasksData.sort((a,b)=>b.created-a.created).forEach(t=>{
+        const row=document.createElement('div');
+        row.className='task-row';
+        const title=document.createElement('div');
+        title.className='task-title';
+        title.textContent=t.title||'Pending';
+        const status=document.createElement('div');
+        status.className='task-status';
+        const icon=STATUS_ICONS[t.status]||'';
+        status.textContent=icon+' '+t.status;
+        row.appendChild(title);
+        row.appendChild(status);
+        if(t.prUrl){
+            const a=document.createElement('a');
+            a.href=t.prUrl;
+            a.target='_blank';
+            a.textContent='View PR';
+            row.appendChild(a);
+        }else if(t.patch){
+            const apply=document.createElement('button');
+            apply.textContent='Apply';
+            apply.className='small-btn';
+            apply.disabled=t.status!=='pending';
+            apply.addEventListener('click',()=>applyPatchLowLevel(t));
+            row.appendChild(apply);
+        }
+        list.appendChild(row);
+    });
+    modal.classList.remove('hidden');
+    modal.style.display='flex';
+}
+
+function closeHistoryModal(){
+    const modal=document.getElementById('history-modal');
+    modal.classList.add('hidden');
+    modal.style.display='none';
 }
 
 // Instruction modal open bug fix history:
@@ -1082,7 +1198,9 @@ function updateAiCard(updateTotals=true){
 }
 
 function approximateTokens(count){
-    return count>=10000 ? Math.round(count/1000)*1000 : Math.round(count/500)*500;
+    if(count<1000) return Math.round(count/50)*50;
+    if(count<10000) return Math.round(count/100)*100;
+    return Math.round(count/1000)*1000;
 }
 
 function formatTokens(count){
@@ -1571,6 +1689,14 @@ async function init(){
             updateAiCard();
         });
     }
+    const histBtn=document.getElementById('history-btn');
+    if(histBtn) histBtn.addEventListener('click', openHistoryModal);
+    const histClose=document.getElementById('history-close');
+    if(histClose) histClose.addEventListener('click', e=>{log('history-close click'); closeHistoryModal(e);});
+    const histModal=document.getElementById('history-modal');
+    if(histModal) histModal.addEventListener('click', e=>{log('history-modal background click'); closeHistoryModal(e);});
+    const histContent=document.getElementById('history-content');
+    if(histContent) histContent.addEventListener('click', e=>e.stopPropagation());
     loadInstructions();
     loadTasks();
     log('init listeners attached');
