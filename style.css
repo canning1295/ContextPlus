@@ -44,13 +44,14 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 #copy-btn { margin-top:10px; width:600px; }
 #generate-btn { margin-top:10px; width:600px; }
 #task-list { margin:20px auto; width:80%; max-width:600px; }
-.task-row { background:var(--modal-bg); margin-bottom:10px; padding:10px; display:flex; justify-content:space-between; border:1px solid #ccc; }
-.task-title { font-weight:bold; }
-.task-status { opacity:0.8; }
-.diff { background:#f6f6f6; overflow-x:auto; white-space:pre-wrap; margin:10px 0; max-height:300px; }
-.diff-add { color:green; }
-.diff-del { color:red; }
-.diff-hunk { color:blue; }
+#task-table { width:100%; border-collapse:collapse; }
+#task-table td, #task-table th { border:1px solid #ccc; padding:6px; }
+.status-btn { border:none; padding:4px 8px; border-radius:6px; color:#fff; cursor:pointer; }
+.status-pending { background:orange; }
+.status-ready { background:blue; }
+.status-merged { background:green; }
+.status-error { background:red; }
+#task-modal-diff { width:100%; max-height:300px; }
 .retry-btn { margin-left:6px; }
 #prompt-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 #prompt-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:600px; max-height:80vh; }

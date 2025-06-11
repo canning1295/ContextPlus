@@ -27,13 +27,7 @@ const TASK_POLL_INTERVAL = 60_000;   // 60 s
 const MAX_PATCH_LINES = 10_000;
 const MAX_PROMPT_TOKENS = 128_000;
 const MIN_LLM_INTERVAL = 5000; // 5 s
-const STATUS_ICONS = {
-    pending:'⏳',
-    error:'❌',
-    'open_pr':'🌿',
-    'open_pr (dry-run)':'🌿',
-    merged:'✅'
-};
+const GIT_BRANCH_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-git" viewBox="0 0 16 16"><path d="M15.698 7.287 8.712.302a1.03 1.03 0 0 0-1.457 0l-1.45 1.45 1.84 1.84a1.223 1.223 0 0 1 1.55 1.56l1.773 1.774a1.224 1.224 0 0 1 1.267 2.025 1.226 1.226 0 0 1-2.002-1.334L8.58 5.963v4.353a1.226 1.226 0 1 1-1.008-.036V5.887a1.226 1.226 0 0 1-.666-1.608L5.093 2.465l-4.79 4.79a1.03 1.03 0 0 0 0 1.457l6.986 6.986a1.03 1.03 0 0 0 1.457 0l6.953-6.953a1.031 1.031 0 0 0 0-1.457"/></svg>';
 
 let tasksData = [];
 let currentPromptText = '';
@@ -465,35 +459,36 @@ function renderTasks(){
     const list=document.getElementById('task-list');
     if(!list) return;
     list.innerHTML='';
+    const table=document.createElement('table');
+    table.id='task-table';
     tasksData.sort((a,b)=>b.created-a.created).forEach(t=>{
-        const row=document.createElement('div');
-        row.className='task-row';
-        const title=document.createElement('div');
-        title.className='task-title';
-        title.textContent=t.title||'Pending';
-        title.addEventListener('click',()=>openTaskModal(t));
-        const status=document.createElement('div');
-        status.className='task-status';
-        const icon=STATUS_ICONS[t.status]||'';
-        status.textContent=icon+' '+t.status;
-        row.appendChild(title);
-        row.appendChild(status);
-        if(t.prUrl){
-            const a=document.createElement('a');
-            a.href=t.prUrl;
-            a.target='_blank';
-            a.textContent='View PR';
-            row.appendChild(a);
+        const tr=document.createElement('tr');
+        const nameTd=document.createElement('td');
+        nameTd.textContent=t.title||'Pending';
+        const statusTd=document.createElement('td');
+        const btn=document.createElement('button');
+        btn.className='status-btn';
+        let statusText='Pending';
+        let cls='status-pending';
+        if(t.status==='open_pr'||t.status==='open_pr (dry-run)'){
+            statusText='Ready';
+            cls='status-ready';
+        }else if(t.status==='merged'){
+            statusText='Merged';
+            cls='status-merged';
+        }else if(t.status==='error'){
+            statusText='Error';
+            cls='status-error';
         }
-        if(t.status==='error'){
-            const retry=document.createElement('button');
-            retry.textContent='Retry';
-            retry.className='small-btn retry-btn';
-            retry.addEventListener('click',()=>retryTask(t));
-            row.appendChild(retry);
-        }
-        list.appendChild(row);
+        btn.classList.add(cls);
+        btn.innerHTML=GIT_BRANCH_ICON+' '+statusText;
+        btn.addEventListener('click',()=>openTaskModal(t));
+        statusTd.appendChild(btn);
+        tr.appendChild(nameTd);
+        tr.appendChild(statusTd);
+        table.appendChild(tr);
     });
+    list.appendChild(table);
 }
 
 
@@ -506,18 +501,7 @@ function openTaskModal(task){
     const diffEl=document.getElementById('task-modal-diff');
     const prBtn=document.getElementById('task-pr-btn');
     titleEl.textContent=task.title||'Update';
-    diffEl.innerHTML='';
-    if(task.patch){
-        task.patch.split('\n').forEach(line=>{
-            const span=document.createElement('span');
-            if(line.startsWith('+')) span.className='diff-add';
-            else if(line.startsWith('-')) span.className='diff-del';
-            else if(line.startsWith('@@')) span.className='diff-hunk';
-            span.textContent=line;
-            diffEl.appendChild(span);
-            diffEl.appendChild(document.createTextNode('\n'));
-        });
-    }
+    diffEl.value = task.patch || '';
     if(task.prUrl){
         prBtn.textContent='View Pull Request';
         prBtn.disabled=false;
