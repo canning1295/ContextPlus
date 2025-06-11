@@ -965,7 +965,7 @@ async function updateOutputCards(){
         card.dataset.type='files';
         card.dataset.paths=JSON.stringify(filePaths);
         card.dataset.tokens=tokens;
-        card.textContent=`Selected Files - ${formatTokens(tokens)} tokens`;
+        card.innerHTML=`<div class="card-header">Selected Files</div>${formatTokens(tokens)} tokens`;
         cards.push(card);
     }
     const selectedInstr=document.querySelectorAll('.instruction-toggle:checked');
@@ -979,7 +979,7 @@ async function updateOutputCards(){
             card.dataset.type='instruction';
             card.dataset.id=instr.id;
             card.dataset.tokens=tokens;
-            card.textContent=`${instr.title} - ${formatTokens(tokens)} tokens`;
+            card.innerHTML=`<div class="card-header">${instr.title}</div>${formatTokens(tokens)} tokens`;
             cards.push(card);
         }
     });
@@ -997,22 +997,11 @@ async function updateOutputCards(){
         card.draggable=true;
         card.dataset.type='descriptions';
         card.dataset.tokens=tokens;
-        card.textContent=`File Descriptions - ${formatTokens(tokens)} tokens`;
-        cards.push(card);
-    }
-    const aiToggle=document.getElementById('ai-instructions-toggle');
-    const aiText=document.getElementById('ai-instructions').value.trim();
-    if(aiToggle && aiToggle.checked && aiText){
-        const tokens=approximateTokens(Math.ceil(aiText.length/4.7));
-        const card=document.createElement('div');
-        card.className='card';
-        card.draggable=true;
-        card.dataset.type='ai';
-        card.dataset.tokens=tokens;
-        card.textContent=`AI Request - ${formatTokens(tokens)} tokens`;
+        card.innerHTML=`<div class="card-header">File Descriptions</div>${formatTokens(tokens)} tokens`;
         cards.push(card);
     }
     cards.forEach(c=>container.appendChild(c));
+    updateAiCard(false);
     const dragHint=document.getElementById('drag-hint');
     if(cards.length>1){
         container.classList.add('multi-card');
@@ -1061,11 +1050,43 @@ function getTotalTokens(){
     return total;
 }
 
+function updateAiCard(updateTotals=true){
+    const container=document.getElementById('output-cards');
+    if(!container) return;
+    const aiToggle=document.getElementById('ai-instructions-toggle');
+    const aiText=document.getElementById('ai-instructions').value.trim();
+    const existing=container.querySelector('.card[data-type="ai"]');
+    if(aiToggle && aiToggle.checked && aiText){
+        const tokens=approximateTokens(Math.ceil(aiText.length/4.7));
+        if(existing){
+            existing.dataset.tokens=tokens;
+            existing.innerHTML=`<div class="card-header">AI Request</div>${formatTokens(tokens)} tokens`;
+        }else{
+            const card=document.createElement('div');
+            card.className='card';
+            card.draggable=true;
+            card.dataset.type='ai';
+            card.dataset.tokens=tokens;
+            card.innerHTML=`<div class="card-header">AI Request</div>${formatTokens(tokens)} tokens`;
+            container.appendChild(card);
+            initDrag(container);
+        }
+    }else if(existing){
+        existing.remove();
+    }
+    if(updateTotals){
+        updateTotalTokens();
+        updateGenerateButton();
+        saveSelections();
+    }
+}
+
 function approximateTokens(count){
     return count>=10000 ? Math.round(count/1000)*1000 : Math.round(count/500)*500;
 }
 
 function formatTokens(count){
+    if(count>0 && count<500) return '<500';
     return `~${count.toLocaleString()}`;
 }
 
@@ -1415,7 +1436,7 @@ async function copySelected(){
         await navigator.clipboard.writeText(String(clipText));
         log('copySelected success', {tokens});
         if(progressToast) progressToast.remove();
-        showToast(`${tokens} tokens copied to clipboard`,'success',3,40,200,'upper middle');
+        showToast(`${formatTokens(tokens)} tokens copied to clipboard`,'success',3,40,200,'upper middle');
     } catch(err) {
         log('copySelected fail', err);
         if(progressToast) progressToast.remove();
@@ -1539,13 +1560,17 @@ async function init(){
     document.getElementById('generate-desc-btn').addEventListener('click', generateDescriptions);
     const aiTextEl=document.getElementById('ai-instructions');
     const aiToggleEl=document.getElementById('ai-instructions-toggle');
-    if(aiTextEl) aiTextEl.addEventListener('input', updateOutputCards);
-    if(aiToggleEl) aiToggleEl.addEventListener('change',()=>{
-        if(aiToggleEl.checked && !aiTextEl.value.trim()){
-            showToast('Enter AI Instructions','warning');
-        }
-        updateOutputCards();
-    });
+    if(aiTextEl && aiToggleEl){
+        aiTextEl.classList.toggle('hidden', !aiToggleEl.checked);
+        aiTextEl.addEventListener('input', ()=>updateAiCard());
+        aiToggleEl.addEventListener('change',()=>{
+            aiTextEl.classList.toggle('hidden', !aiToggleEl.checked);
+            if(aiToggleEl.checked && !aiTextEl.value.trim()){
+                showToast('Enter AI Instructions','warning');
+            }
+            updateAiCard();
+        });
+    }
     loadInstructions();
     loadTasks();
     log('init listeners attached');

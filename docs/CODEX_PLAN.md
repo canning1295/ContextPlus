@@ -21,11 +21,11 @@ Use the following list to track completion status for each task.
 - [x] **Task 9** – `applyPatchLowLevel()` plumbing
 - [x] **Task 10** – Task list polling & icons
 - [x] **Task 11** – Settings toggle: Dry-run / Beta
-- [ ] **Task 12** – Polish & edge cases
-- [ ] **Task 13** – Fix AI Request flicker
-- [ ] **Task 14** – Toggle-controlled AI Request field
-- [ ] **Task 15** – AI Output section headers
-- [ ] **Task 16** – "<500 tokens" display
+- [x] **Task 12** – Polish & edge cases
+- [x] **Task 13** – Fix AI Request flicker
+- [x] **Task 14** – Toggle-controlled AI Request field
+- [x] **Task 15** – AI Output section headers
+- [x] **Task 16** – "<500 tokens" display
 - [ ] **Task 17** – Refined token estimator
 - [ ] **Task 18** – Task history modal & PR workflow
 
