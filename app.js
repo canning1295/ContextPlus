@@ -21,6 +21,14 @@ let llmModel = null;
 let llmAsync = false;
 let repoTree = [];
 
+const TASK_POLL_INTERVAL = 60_000;   // 60 s
+const MAX_PATCH_LINES = 10_000;
+const MAX_PROMPT_TOKENS = 128_000;
+
+let tasksData = [];
+let currentPromptText = '';
+let currentBundle = null;
+
 // openDB hang fix history:
 // 1. Added fallback timeout to ensure init proceeds even if request events never fire.
 function openDB() {
@@ -304,6 +312,92 @@ function renderInstructions(){
         list.appendChild(div);
     });
     updateOutputCards();
+}
+
+function loadTasks(){
+    if(!db){
+        try{
+            tasksData=JSON.parse(localStorage.getItem('tasks')||'[]');
+        }catch(err){ tasksData=[]; }
+        renderTasks();
+        return;
+    }
+    const store=db.transaction('tasks').objectStore('tasks');
+    const req=store.getAll();
+    req.onsuccess=()=>{ tasksData=req.result||[]; renderTasks(); };
+}
+
+function saveTask(task){
+    if(!db){
+        let arr=[];
+        try{ arr=JSON.parse(localStorage.getItem('tasks')||'[]'); }catch(err){}
+        const idx=arr.findIndex(t=>t.id===task.id);
+        if(idx!==-1) arr[idx]=task; else arr.push(task);
+        localStorage.setItem('tasks',JSON.stringify(arr));
+        return;
+    }
+    const store=db.transaction('tasks','readwrite').objectStore('tasks');
+    store.put(task);
+}
+
+function addTask(task){
+    tasksData.unshift(task);
+    saveTask(task);
+    renderTasks();
+}
+
+function parseModelOutput(text){
+    let title='';
+    let patch='';
+    try{
+        const header=text.match(/\{[\s\S]*?\}/);
+        if(header){
+            const obj=JSON.parse(header[0]);
+            title=obj.title||'';
+            text=text.slice(header.index+header[0].length);
+        }
+        const m=text.match(/```patch\n([\s\S]*?)\n```/);
+        if(m) patch=m[1].trim();
+    }catch(err){ log('parseModelOutput error',err); }
+    return {title, patch};
+}
+
+function renderTasks(){
+    const list=document.getElementById('task-list');
+    if(!list) return;
+    list.innerHTML='';
+    tasksData.sort((a,b)=>b.created-a.created).forEach(t=>{
+        const row=document.createElement('div');
+        row.className='task-row';
+        const title=document.createElement('div');
+        title.className='task-title';
+        title.textContent=t.title||'Pending';
+        const status=document.createElement('div');
+        status.className='task-status';
+        status.textContent=t.status;
+        row.appendChild(title);
+        row.appendChild(status);
+        if(t.patch){
+            const pre=document.createElement('pre');
+            pre.className='diff';
+            t.patch.split('\n').forEach(line=>{
+                const span=document.createElement('span');
+                if(line.startsWith('+')) span.className='diff-add';
+                else if(line.startsWith('-')) span.className='diff-del';
+                else if(line.startsWith('@@')) span.className='diff-hunk';
+                span.textContent=line;
+                pre.appendChild(span);
+                pre.appendChild(document.createTextNode('\n'));
+            });
+            row.appendChild(pre);
+            const apply=document.createElement('button');
+            apply.textContent='Apply';
+            apply.className='small-btn';
+            apply.disabled=true; // placeholder
+            row.appendChild(apply);
+        }
+        list.appendChild(row);
+    });
 }
 
 // Instruction modal open bug fix history:
@@ -955,6 +1049,7 @@ function showPromptTab(name){
 }
 
 function openPromptModal(promptText='', payload=''){
+    currentPromptText = promptText;
     const modal=document.getElementById('prompt-modal');
     document.getElementById('prompt-prompt').textContent=promptText;
     document.getElementById('prompt-payload').textContent=payload;
@@ -968,6 +1063,35 @@ function closePromptModal(e){
     const modal=document.getElementById('prompt-modal');
     modal.classList.add('hidden');
     modal.style.display='none';
+}
+
+async function handlePromptSend(){
+    log('handlePromptSend');
+    closePromptModal();
+    if(!llmApiKey){ openSettings(); return; }
+    const task={
+        title:'Pending',
+        prompt:currentPromptText,
+        patch:null,
+        branch:null,
+        prUrl:null,
+        status:'pending',
+        created:Date.now()
+    };
+    addTask(task);
+    const progress=showToast('Calling LLM...','info',0,40,200,'upper middle');
+    try{
+        const resp=await callLLM(currentPromptText);
+        const parsed=parseModelOutput(resp);
+        task.patch=parsed.patch||resp;
+        if(parsed.title) task.title=parsed.title;
+        saveTask(task);
+    }catch(err){
+        task.status='error';
+        saveTask(task);
+    }
+    if(progress) progress.remove();
+    renderTasks();
 }
 
 async function buildContextBundle(){
@@ -1220,6 +1344,7 @@ function generateUpdates(){
     buildContextBundle().then(bundle=>{
         const prompt=buildPrompt(bundle,'code');
         const payload=JSON.stringify(bundle,null,2);
+        currentBundle = bundle;
         openPromptModal(prompt, payload);
     });
 }
@@ -1302,7 +1427,7 @@ async function init(){
     document.getElementById('description-modal').addEventListener('click', e=>{ log('description-modal background click'); closeDescriptionModal(e); });
     document.getElementById('description-content').addEventListener('click', e=>e.stopPropagation());
     document.getElementById('prompt-cancel').addEventListener('click', e=>{ log('prompt-cancel click'); closePromptModal(e); });
-    document.getElementById('prompt-send').addEventListener('click', ()=>{ log('prompt-send click'); showToast('Not implemented','info'); });
+    document.getElementById('prompt-send').addEventListener('click', ()=>{ log('prompt-send click'); handlePromptSend(); });
     document.getElementById('prompt-modal').addEventListener('click', e=>{ log('prompt-modal background click'); closePromptModal(e); });
     document.getElementById('prompt-content').addEventListener('click', e=>e.stopPropagation());
     document.querySelectorAll('.prompt-tab').forEach(btn=>btn.addEventListener('click', ()=>showPromptTab(btn.dataset.tab)));
@@ -1321,6 +1446,7 @@ async function init(){
         updateOutputCards();
     });
     loadInstructions();
+    loadTasks();
     log('init listeners attached');
     updateGenerateButton();
     const overlay = document.getElementById('loading-overlay');

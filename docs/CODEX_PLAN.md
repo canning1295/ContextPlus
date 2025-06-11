@@ -16,8 +16,8 @@ Use the following list to track completion status for each task.
 - [x] **Task 4** – Prompt Preview modal
 - [x] **Task 5** – Seed "Code" & "Ask" presets
 - [x] **Task 6** – `buildPrompt()`
-- [ ] **Task 7** – LLM call & Task persistence
-- [ ] **Task 8** – Parse model output & diff UI
+- [x] **Task 7** – LLM call & Task persistence
+- [x] **Task 8** – Parse model output & diff UI
 - [ ] **Task 9** – `applyPatchLowLevel()` plumbing
 - [ ] **Task 10** – Task list polling & icons
 - [ ] **Task 11** – Settings toggle: Dry-run / Beta
