@@ -1,6 +1,6 @@
 # Codex Implementation Brief – "Generate-and-Import" Feature for ContextPlus
 
-This document is the **single source of truth** that Codex agents will reference while executing the 12 incremental tasks described in the companion roadmap.
+This document is the **single source of truth** that Codex agents will reference while executing the 18 incremental tasks described in the companion roadmap.
 It explains the existing architecture, coding conventions, new UX requirements, API contracts, data models, and success criteria—so each task can be delivered independently while remaining perfectly aligned with the final vision.
 
 ---
@@ -22,6 +22,12 @@ Use the following list to track completion status for each task.
 - [x] **Task 10** – Task list polling & icons
 - [x] **Task 11** – Settings toggle: Dry-run / Beta
 - [ ] **Task 12** – Polish & edge cases
+- [ ] **Task 13** – Fix AI Request flicker
+- [ ] **Task 14** – Toggle-controlled AI Request field
+- [ ] **Task 15** – AI Output section headers
+- [ ] **Task 16** – "<500 tokens" display
+- [ ] **Task 17** – Refined token estimator
+- [ ] **Task 18** – Task history modal & PR workflow
 
 ---
 
@@ -197,6 +203,12 @@ const MAX_PROMPT_TOKENS   = 128_000; // approx chars/4.7
 | 10   | Task list polling & icons       | Merged state shown.           |
 | 11   | Settings toggle: Dry-run / Beta | Flags respected at runtime.   |
 | 12   | Polish & edge cases             | Size limits, rate-limit, CSS. |
+| 13   | Fix AI Request flicker          | Cards stay visible when typing. |
+| 14   | Toggle-controlled AI Request    | Textarea hidden until enabled. |
+| 15   | AI Output section headers       | Sections labeled for clarity. |
+| 16   | "<500 tokens" display           | Small counts shortened.        |
+| 17   | Refined token estimator         | Token counts more accurate.    |
+| 18   | Task history modal & PR workflow| Modal shows updates; create/view PR. |
 
 ---
 
