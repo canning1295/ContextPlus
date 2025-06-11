@@ -19,11 +19,20 @@ let llmProvider = null;
 let llmApiKey = null;
 let llmModel = null;
 let llmAsync = false;
+let dryRun = false;
+let betaMode = false;
 let repoTree = [];
 
 const TASK_POLL_INTERVAL = 60_000;   // 60 s
 const MAX_PATCH_LINES = 10_000;
 const MAX_PROMPT_TOKENS = 128_000;
+const STATUS_ICONS = {
+    pending:'⏳',
+    error:'❌',
+    'open_pr':'🌿',
+    'open_pr (dry-run)':'🌿',
+    merged:'✅'
+};
 
 let tasksData = [];
 let currentPromptText = '';
@@ -346,6 +355,20 @@ function addTask(task){
     renderTasks();
 }
 
+async function applyPatchLowLevel(task){
+    log('applyPatchLowLevel', {dryRun});
+    if(dryRun){
+        task.status = 'open_pr (dry-run)';
+        saveTask(task);
+        renderTasks();
+        return;
+    }
+    // TODO: implement GitHub commit and PR creation
+    task.status = 'open_pr';
+    saveTask(task);
+    renderTasks();
+}
+
 function parseModelOutput(text){
     let title='';
     let patch='';
@@ -374,7 +397,8 @@ function renderTasks(){
         title.textContent=t.title||'Pending';
         const status=document.createElement('div');
         status.className='task-status';
-        status.textContent=t.status;
+        const icon=STATUS_ICONS[t.status]||'';
+        status.textContent=icon+' '+t.status;
         row.appendChild(title);
         row.appendChild(status);
         if(t.patch){
@@ -393,7 +417,8 @@ function renderTasks(){
             const apply=document.createElement('button');
             apply.textContent='Apply';
             apply.className='small-btn';
-            apply.disabled=true; // placeholder
+            apply.disabled=t.status!=='pending';
+            apply.addEventListener('click',()=>applyPatchLowLevel(t));
             row.appendChild(apply);
         }
         list.appendChild(row);
@@ -1359,6 +1384,8 @@ async function init(){
     llmApiKey = await idbGet('llm_api_key');
     llmAsync = await idbGet('llm_async');
     llmModel = await idbGet('llm_model');
+    dryRun = await idbGet('dry_run');
+    betaMode = await idbGet('beta_mode');
     document.getElementById('client-id-input').value = clientId || '';
     document.getElementById('client-secret-input').value = clientSecret || '';
     document.getElementById('llm-provider-select').value = llmProvider || 'openai';
@@ -1366,6 +1393,8 @@ async function init(){
     document.getElementById('llm-async').checked = !!llmAsync;
     document.getElementById('llm-model-select').value = llmModel || '';
     updateModelList();
+    document.getElementById('dry-run-toggle').checked = !!dryRun;
+    document.getElementById('beta-toggle').checked = !!betaMode;
     log('init retrieved creds', {accessToken, clientId, clientSecret});
     // ensure modals start hidden
     ['settings-modal','modal-overlay','instruction-modal','description-modal','prompt-modal'].forEach(id=>{
@@ -1412,6 +1441,14 @@ async function init(){
     if(dda) dda.addEventListener('click', deselectAllDesc);
     document.getElementById('file-tree').addEventListener('change', handleFolderToggle);
     document.getElementById('theme-select').addEventListener('change', handleThemeChange);
+    document.getElementById('dry-run-toggle').addEventListener('change', e=>{
+        dryRun = e.target.checked;
+        idbSet('dry_run', dryRun);
+    });
+    document.getElementById('beta-toggle').addEventListener('change', e=>{
+        betaMode = e.target.checked;
+        idbSet('beta_mode', betaMode);
+    });
     document.getElementById('settings-modal').addEventListener('click', (e) => { log('settings-modal background click'); closeSettings(e); });
     document.getElementById('settings-content').addEventListener('click', e=>e.stopPropagation());
     document.getElementById('create-instruction').addEventListener('click', () => { log('create-instruction click'); openInstructionModal(); });
@@ -1449,6 +1486,7 @@ async function init(){
     loadTasks();
     log('init listeners attached');
     updateGenerateButton();
+    setInterval(renderTasks, TASK_POLL_INTERVAL);
     const overlay = document.getElementById('loading-overlay');
     if (overlay) overlay.style.display = 'none';
 }
