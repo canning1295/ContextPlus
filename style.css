@@ -42,6 +42,14 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .instruction-toggle{ margin-right:4px; }
 #copy-btn { margin-top:10px; width:600px; }
 #generate-btn { margin-top:10px; width:600px; }
+#task-list { margin:20px auto; width:80%; max-width:600px; }
+.task-row { background:var(--modal-bg); margin-bottom:10px; padding:10px; display:flex; justify-content:space-between; border:1px solid #ccc; }
+.task-title { font-weight:bold; }
+.task-status { opacity:0.8; }
+.diff { background:#f6f6f6; overflow-x:auto; white-space:pre-wrap; margin:10px 0; }
+.diff-add { color:green; }
+.diff-del { color:red; }
+.diff-hunk { color:blue; }
 #prompt-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 #prompt-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:600px; max-height:80vh; }
 #prompt-tabs { display:flex; border-bottom:1px solid #ccc; }
