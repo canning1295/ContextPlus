@@ -131,6 +131,7 @@ button { border-radius:6px; cursor:pointer; }
 .toast.success { background: green; }
 .toast.warning { background: orange; }
 .toast.error { background: red; }
+.toast.info { background: blue; }
 
 /* Loading overlay and clock-style spinner */
 #loading-overlay {
