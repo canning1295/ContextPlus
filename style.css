@@ -42,6 +42,13 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .instruction-toggle{ margin-right:4px; }
 #copy-btn { margin-top:10px; width:600px; }
 #generate-btn { margin-top:10px; width:600px; }
+#prompt-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
+#prompt-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:600px; max-height:80vh; }
+#prompt-tabs { display:flex; border-bottom:1px solid #ccc; }
+.prompt-tab { background: var(--top-bar-bg); border:1px solid #ccc; border-bottom:none; padding:6px 12px; margin-right:4px; border-top-left-radius:6px; border-top-right-radius:6px; cursor:pointer; }
+.prompt-tab.active { background:var(--modal-bg); font-weight:bold; border-color:#ccc; border-bottom:2px solid var(--modal-bg); }
+.prompt-pane { display:none; white-space:pre-wrap; overflow-y:auto; max-height:60vh; border:1px solid #ccc; padding:10px; }
+.prompt-pane.active { display:block; }
 #instruction-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 
 #instruction-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:400px; }

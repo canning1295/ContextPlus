@@ -73,6 +73,22 @@
 
     <div id="toast-container"></div>
 
+    <div id="prompt-modal" class="hidden">
+        <div id="prompt-content">
+            <h2>Prompt Preview</h2>
+            <div id="prompt-tabs">
+                <button class="prompt-tab" data-tab="prompt">Prompt</button>
+                <button class="prompt-tab" data-tab="payload">Payload</button>
+            </div>
+            <pre id="prompt-prompt" class="prompt-pane"></pre>
+            <pre id="prompt-payload" class="prompt-pane"></pre>
+            <div class="modal-buttons">
+                <button id="prompt-send" class="small-btn">Send</button>
+                <button id="prompt-cancel" class="small-btn">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <div id="modal-overlay" class="hidden">
         <div id="modal">
             <h2>Select Repository</h2>
