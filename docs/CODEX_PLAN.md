@@ -14,8 +14,8 @@ Use the following list to track completion status for each task.
 - [x] **Task 2** – Generate Updates button
 - [x] **Task 3** – `buildContextBundle()` helper
 - [x] **Task 4** – Prompt Preview modal
-- [ ] **Task 5** – Seed "Code" & "Ask" presets
-- [ ] **Task 6** – `buildPrompt()`
+- [x] **Task 5** – Seed "Code" & "Ask" presets
+- [x] **Task 6** – `buildPrompt()`
 - [ ] **Task 7** – LLM call & Task persistence
 - [ ] **Task 8** – Parse model output & diff UI
 - [ ] **Task 9** – `applyPatchLowLevel()` plumbing
