@@ -65,9 +65,6 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 .desc-file { cursor:pointer; text-decoration:underline; }
 #description-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 #description-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:400px; }
-#history-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
-#history-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:600px; max-height:80vh; overflow-y:auto; }
-#history-list { display:flex; flex-direction:column; gap:10px; }
 #task-modal { position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; }
 #task-content { background:var(--modal-bg); padding:20px; display:flex; flex-direction:column; gap:10px; width:600px; max-height:80vh; overflow-y:auto; }
 #generate-status { margin-top:0; min-height:0; font-size:0.9em; }

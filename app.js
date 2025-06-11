@@ -496,47 +496,6 @@ function renderTasks(){
     });
 }
 
-function openHistoryModal(){
-    const modal=document.getElementById('history-modal');
-    const list=document.getElementById('history-list');
-    list.innerHTML='';
-    tasksData.sort((a,b)=>b.created-a.created).forEach(t=>{
-        const row=document.createElement('div');
-        row.className='task-row';
-        const title=document.createElement('div');
-        title.className='task-title';
-        title.textContent=t.title||'Pending';
-        const status=document.createElement('div');
-        status.className='task-status';
-        const icon=STATUS_ICONS[t.status]||'';
-        status.textContent=icon+' '+t.status;
-        row.appendChild(title);
-        row.appendChild(status);
-        if(t.prUrl){
-            const a=document.createElement('a');
-            a.href=t.prUrl;
-            a.target='_blank';
-            a.textContent='View PR';
-            row.appendChild(a);
-        }else if(t.patch){
-            const apply=document.createElement('button');
-            apply.textContent='Apply';
-            apply.className='small-btn';
-            apply.disabled=t.status!=='pending';
-            apply.addEventListener('click',()=>applyPatchLowLevel(t));
-            row.appendChild(apply);
-        }
-        list.appendChild(row);
-    });
-    modal.classList.remove('hidden');
-    modal.style.display='flex';
-}
-
-function closeHistoryModal(){
-    const modal=document.getElementById('history-modal');
-    modal.classList.add('hidden');
-    modal.style.display='none';
-}
 
 let currentTask=null;
 
@@ -1719,14 +1678,6 @@ async function init(){
             updateAiCard();
         });
     }
-    const histBtn=document.getElementById('history-btn');
-    if(histBtn) histBtn.addEventListener('click', openHistoryModal);
-    const histClose=document.getElementById('history-close');
-    if(histClose) histClose.addEventListener('click', e=>{log('history-close click'); closeHistoryModal(e);});
-    const histModal=document.getElementById('history-modal');
-    if(histModal) histModal.addEventListener('click', e=>{log('history-modal background click'); closeHistoryModal(e);});
-    const histContent=document.getElementById('history-content');
-    if(histContent) histContent.addEventListener('click', e=>e.stopPropagation());
     const taskClose=document.getElementById('task-modal-close');
     if(taskClose) taskClose.addEventListener('click', e=>{log('task-modal-close click'); closeTaskModal(e);});
     const taskModal=document.getElementById('task-modal');
