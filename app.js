@@ -237,23 +237,49 @@ let instructionsData = [];
 let currentInstructionId = null;
 let currentDescPath = null;
 
+const DEFAULT_PRESETS = {
+    '-1': {
+        id: -1,
+        title: 'Code',
+        text: `SYSTEM:\nYou are an automated code-modification agent.\nReturn ONE unified git patch wrapped in \`\`\`patch … \`\`\`; no commentary.`
+    },
+    '-2': {
+        id: -2,
+        title: 'Ask',
+        text: `SYSTEM:\nYou are a knowledgeable development assistant.`
+    }
+};
+
 function loadInstructions(){
     if(!db){
         log('loadInstructions skipped, db not initialized; using localStorage');
         try {
             instructionsData = JSON.parse(localStorage.getItem('instructions') || '[]');
+            for(const key in DEFAULT_PRESETS){
+                if(!instructionsData.find(i=>i.id===Number(key))) instructionsData.push({...DEFAULT_PRESETS[key]});
+            }
+            localStorage.setItem('instructions', JSON.stringify(instructionsData));
         } catch(err) {
             instructionsData = [];
         }
         renderInstructions();
         return;
     }
-    const tx = db.transaction('instructions');
+    const tx = db.transaction('instructions', 'readwrite');
     const store = tx.objectStore('instructions');
     const req = store.getAll();
     req.onsuccess = () => {
         instructionsData = req.result || [];
-        localStorage.setItem('instructions', JSON.stringify(instructionsData));
+        let changed=false;
+        for(const key in DEFAULT_PRESETS){
+            if(!instructionsData.find(i=>i.id===Number(key))){
+                instructionsData.push({...DEFAULT_PRESETS[key]});
+                store.put(DEFAULT_PRESETS[key]);
+                changed=true;
+            }
+        }
+        if(changed) localStorage.setItem('instructions', JSON.stringify(instructionsData));
+        else localStorage.setItem('instructions', JSON.stringify(instructionsData));
         renderInstructions();
     };
 }
@@ -289,13 +315,16 @@ function openInstructionModal(id=null){
     const modal = document.getElementById('instruction-modal');
     const titleEl = document.getElementById('instruction-title');
     const textEl = document.getElementById('instruction-text');
+    const restoreBtn=document.getElementById('instruction-restore');
     if(id){
         const instr = instructionsData.find(i=>i.id===id);
         titleEl.value = instr ? instr.title : '';
         textEl.value = instr ? instr.text : '';
+        if(restoreBtn) restoreBtn.classList.toggle('hidden', !(id<0));
     } else {
         titleEl.value='';
         textEl.value='';
+        if(restoreBtn) restoreBtn.classList.add('hidden');
     }
     modal.style.display='flex';
     modal.classList.remove('hidden');
@@ -364,6 +393,15 @@ function deleteInstruction(){
         store.transaction.oncomplete=()=>{ loadInstructions(); closeInstructionModal(); };
     } else {
         closeInstructionModal();
+    }
+}
+
+function restoreInstructionDefault(){
+    if(currentInstructionId && currentInstructionId<0){
+        const preset=DEFAULT_PRESETS[String(currentInstructionId)];
+        if(!preset) return;
+        document.getElementById('instruction-title').value=preset.title;
+        document.getElementById('instruction-text').value=preset.text;
     }
 }
 
@@ -964,6 +1002,38 @@ async function buildContextBundle(){
     return bundle;
 }
 
+function buildPrompt(bundle, mode='code'){
+    const lines=[];
+    if(mode==='code'){
+        lines.push('SYSTEM:');
+        lines.push('You are an automated code-modification agent.');
+        lines.push('Return ONE unified git patch wrapped in ```patch … ```; no commentary.');
+        lines.push('');
+    }else{
+        lines.push('SYSTEM:');
+        lines.push('You are a knowledgeable development assistant.');
+        lines.push('');
+    }
+    lines.push('USER:');
+    lines.push('Repository root is / (ContextPlus).');
+    lines.push(`Current branch: ${currentBranch}.`);
+    lines.push('Please implement the following change(s):');
+    lines.push('');
+    lines.push(bundle.aiRequest||'None');
+    lines.push('');
+    bundle.instructions.forEach((t,i)=>{ lines.push(`${i+1}. ${t}`); });
+    lines.push('');
+    lines.push('Context files follow.');
+    bundle.files.forEach(f=>{
+        lines.push(`>>> ${f.path}`);
+        lines.push(f.text);
+        lines.push('<<< END FILE');
+    });
+    lines.push('...');
+    if(mode==='code') lines.push('Remember: output only ONE patch block.');
+    return lines.join('\n');
+}
+
 async function saveSelections(){
     if(!currentRepo || !currentBranch) return;
     const files=getSelectedPaths();
@@ -1148,8 +1218,9 @@ async function copySelected(){
 function generateUpdates(){
     log('generateUpdates click');
     buildContextBundle().then(bundle=>{
+        const prompt=buildPrompt(bundle,'code');
         const payload=JSON.stringify(bundle,null,2);
-        openPromptModal('Prompt preview not implemented', payload);
+        openPromptModal(prompt, payload);
     });
 }
 
@@ -1222,6 +1293,8 @@ async function init(){
     document.getElementById('instruction-close').addEventListener('click', (e) => { log('instruction-close click'); closeInstructionModal(e); });
     document.getElementById('instruction-save').addEventListener('click', saveInstruction);
     document.getElementById('instruction-delete').addEventListener('click', deleteInstruction);
+    const restoreBtn=document.getElementById('instruction-restore');
+    if(restoreBtn) restoreBtn.addEventListener('click', restoreInstructionDefault);
     document.getElementById('instruction-modal').addEventListener('click', (e) => { log('instruction-modal background click'); closeInstructionModal(e); });
     document.getElementById('instruction-content').addEventListener('click', e=>e.stopPropagation());
     document.getElementById('description-close').addEventListener('click', e=>{ log('description-close click'); closeDescriptionModal(e); });
