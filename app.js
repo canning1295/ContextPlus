@@ -351,6 +351,24 @@ function addTask(task){
     renderTasks();
 }
 
+function removeTask(id){
+    tasksData = tasksData.filter(t=>t.id!==id);
+    if(!db){
+        localStorage.setItem('tasks', JSON.stringify(tasksData));
+        renderTasks();
+        return;
+    }
+    const store = db.transaction('tasks','readwrite').objectStore('tasks');
+    store.delete(id);
+    store.transaction.oncomplete = ()=>{ renderTasks(); };
+}
+
+function deleteCurrentTask(){
+    if(!currentTask) return;
+    removeTask(currentTask.id);
+    closeTaskModal();
+}
+
 async function applyPatchLowLevel(task){
     log('applyPatchLowLevel', {dryRun});
     if(dryRun){
@@ -463,6 +481,7 @@ function renderTasks(){
     table.id='task-table';
     tasksData.sort((a,b)=>b.created-a.created).forEach(t=>{
         const tr=document.createElement('tr');
+        tr.addEventListener('click', ()=>openTaskModal(t));
         const nameTd=document.createElement('td');
         nameTd.textContent=t.title||'Pending';
         const statusTd=document.createElement('td');
@@ -482,7 +501,7 @@ function renderTasks(){
         }
         btn.classList.add(cls);
         btn.innerHTML=GIT_BRANCH_ICON+' '+statusText;
-        btn.addEventListener('click',()=>openTaskModal(t));
+        btn.addEventListener('click',e=>{e.stopPropagation(); openTaskModal(t);});
         statusTd.appendChild(btn);
         tr.appendChild(nameTd);
         tr.appendChild(statusTd);
@@ -1227,8 +1246,14 @@ async function handlePromptSend(){
         showToast('Please wait before sending again','warning');
         return;
     }
+    const repoName = currentRepo ? currentRepo.full_name : 'unknown';
+    const nextId = tasksData.reduce((m,t)=>Math.max(m,t.id||0),0)+1;
+    const nextNum = tasksData.filter(t=>t.repo===repoName).reduce((m,t)=>Math.max(m,t.number||0),0)+1;
     const task={
-        title:'Pending',
+        id: nextId,
+        repo: repoName,
+        number: nextNum,
+        title:`${repoName} - Task ${nextNum}`,
         prompt:currentPromptText,
         patch:null,
         branch:null,
@@ -1242,7 +1267,6 @@ async function handlePromptSend(){
         const resp=await callLLM(currentPromptText);
         const parsed=parseModelOutput(resp);
         task.patch=parsed.patch||resp;
-        if(parsed.title) task.title=parsed.title;
         if(task.patch && task.patch.split('\n').length>MAX_PATCH_LINES){
             task.status='error';
             task.patch=null;
@@ -1273,7 +1297,6 @@ async function retryTask(task){
         const resp=await callLLM(task.prompt);
         const parsed=parseModelOutput(resp);
         task.patch=parsed.patch||resp;
-        if(parsed.title) task.title=parsed.title;
         if(task.patch && task.patch.split('\n').length>MAX_PATCH_LINES){
             task.status='error';
             task.patch=null;
@@ -1664,6 +1687,8 @@ async function init(){
     }
     const taskClose=document.getElementById('task-modal-close');
     if(taskClose) taskClose.addEventListener('click', e=>{log('task-modal-close click'); closeTaskModal(e);});
+    const taskDelete=document.getElementById('task-delete-btn');
+    if(taskDelete) taskDelete.addEventListener('click', e=>{e.stopPropagation(); deleteCurrentTask();});
     const taskModal=document.getElementById('task-modal');
     if(taskModal) taskModal.addEventListener('click', e=>{log('task-modal background click'); closeTaskModal(e);});
     const taskContent=document.getElementById('task-content');
