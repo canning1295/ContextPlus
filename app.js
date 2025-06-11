@@ -29,13 +29,14 @@ function openDB() {
         let finished = false;
         const done = () => { if(!finished){ finished = true; resolve(); } };
         try {
-            const req = indexedDB.open('contextplus', 3);
+            const req = indexedDB.open('contextplus', 4);
             req.onupgradeneeded = e => {
                 const db = e.target.result;
                 if(!db.objectStoreNames.contains('settings')) db.createObjectStore('settings');
                 if(!db.objectStoreNames.contains('instructions')) db.createObjectStore('instructions', { keyPath: 'id', autoIncrement: true });
                 if(db.objectStoreNames.contains('descriptions')) db.deleteObjectStore('descriptions');
                 db.createObjectStore('descriptions', { keyPath: ['repo','branch','path'] });
+                if(!db.objectStoreNames.contains('tasks')) db.createObjectStore('tasks', { keyPath: 'id', autoIncrement: true });
             };
             req.onsuccess = e => {
                 db = e.target.result;

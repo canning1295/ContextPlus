@@ -9,7 +9,7 @@ It explains the existing architecture, coding conventions, new UX requirements, 
 
 Use the following list to track completion status for each task.
 
-- [ ] **Task 0** – IDB schema bump → `tasks` store
+- [x] **Task 0** – IDB schema bump → `tasks` store
 - [ ] **Task 1** – AI Instructions UI & validation
 - [ ] **Task 2** – Generate Updates button
 - [ ] **Task 3** – `buildContextBundle()` helper
