@@ -3,6 +3,7 @@
   --text-color: #000000;
   --top-bar-bg: #f0f0f0;
   --modal-bg: #ffffff;
+  --card-bg: #f8f8f8;
   --overlay-bg: rgba(255, 255, 255, 0.6);
 }
 
@@ -11,6 +12,7 @@
   --text-color: #ffffff;
   --top-bar-bg: #333333;
   --modal-bg: #444444;
+  --card-bg: #444444;
   --overlay-bg: rgba(0, 0, 0, 0.6);
 }
 
@@ -33,7 +35,7 @@ body { font-family: Arial, sans-serif; margin: 0; background: var(--bg-color); c
 #ai-instructions { width:80%; max-width:600px; }
 #output-cards { display:flex; flex-direction:column; align-items:center; gap:10px; }
 #drag-hint { margin-bottom: 6px; opacity: 0.7; display:none; }
-.card { background:var(--modal-bg); padding:10px; border-radius:6px; width:80%; max-width:500px; cursor:grab; position:relative; display:flex; flex-direction:column; gap:4px; }
+.card { background:var(--card-bg); padding:10px; border-radius:6px; width:80%; max-width:500px; cursor:grab; position:relative; display:flex; flex-direction:column; gap:4px; }
 .card-header { font-weight:bold; }
 .card::after { content:'\2195'; position:absolute; right:8px; top:50%; transform:translateY(-50%); opacity:0.6; display:none; }
 .multi-card .card::after { display:block; }
